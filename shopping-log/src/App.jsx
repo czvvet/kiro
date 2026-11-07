@@ -18,8 +18,8 @@ import {
   Target,
 } from 'lucide-react'
 import { Settings as SettingsIcon } from 'lucide-react'
-import basketIllust from './assets/basket.svg'
 import Mascot from './Mascot.jsx'
+import Splash from './Splash.jsx'
 import { PlanMark, PlanRow } from './PlanParts.jsx'
 import SettingsPage from './SettingsPage.jsx'
 import {
@@ -175,11 +175,14 @@ function ItemRow({ item, onClick }) {
       <button className="item" onClick={() => onClick(item)}>
         <CategoryIcon category={item.category} />
         <span className="item-main">
-          <span className="item-name">{item.store || item.name}</span>
+          {/* 何を買ったかがすぐわかるよう、品名を大きく出す */}
+          <span className="item-name">
+            {item.name}
+            {item.quantity > 1 && <span className="item-qty"> × {item.quantity}</span>}
+          </span>
           <span className="item-sub">
             {formatWhen(item)} ・ {item.category}
-            {item.store && ` ・ ${item.name}`}
-            {item.quantity > 1 && ` × ${item.quantity}`}
+            {item.store && ` ・ ${item.store}`}
           </span>
           {item.memo && <span className="item-memo">{item.memo}</span>}
         </span>
@@ -209,6 +212,7 @@ export default function App() {
   const [month, setMonth] = useState(today().slice(0, 7))
   const [selectedDay, setSelectedDay] = useState(today())
   const [chartMode, setChartMode] = useState('week')
+  const [showSplash, setShowSplash] = useState(true)
   // 月の予算(毎月同じ金額を使う。0は未設定)
   const [budget, setBudget] = useState(() => Number(localStorage.getItem(BUDGET_KEY)) || 0)
   const [budgetInput, setBudgetInput] = useState(null)
@@ -528,6 +532,7 @@ export default function App() {
 
   return (
     <div className="app">
+      {showSplash && <Splash onDone={() => setShowSplash(false)} />}
       {tab === 'home' && (
         <>
           <header className="page-header">
@@ -541,22 +546,6 @@ export default function App() {
           </header>
 
           <main className="content">
-            <section className="record-block">
-              <div className="hero">
-                <div className="hero-body">
-                  <div className="hero-text">
-                    <p className="hero-title">今日の買い物を、<br />さっと記録。</p>
-                    <p className="hero-sub">小さな記録で、暮らしを見える化。</p>
-                  </div>
-                  <img src={basketIllust} alt="" width="108" height="98" />
-                </div>
-                <button className="btn-receipt" onClick={() => openNew()}>
-                  <PencilLine size={20} strokeWidth={1.8} />
-                  買い物を記録する
-                </button>
-              </div>
-            </section>
-
             <section className="card month-card">
               <div className="card-head">
                 <h2>今月の買い物</h2>
@@ -610,6 +599,11 @@ export default function App() {
                 </button>
               )}
             </section>
+
+            <button className="btn-receipt" onClick={() => openNew()}>
+              <PencilLine size={20} strokeWidth={1.8} />
+              買い物を記録する
+            </button>
 
             <section className="mascot">
               <Mascot mood={talk.mood} />
