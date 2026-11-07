@@ -348,6 +348,7 @@ p {
 }
 
 .budget-bar {
+  display: flex;
   height: 8px;
   border-radius: 4px;
   background: var(--green-light);
@@ -355,10 +356,15 @@ p {
 }
 
 .budget-bar div {
+  flex-shrink: 0;
   height: 100%;
-  border-radius: 4px;
   background: var(--green);
   transition: width 0.3s;
+}
+
+/* これからの予定の分(うすいしましま) */
+.budget[class] .budget-bar div.budget-bar-plan {
+  background: repeating-linear-gradient(-45deg, #a9c7b6 0 4px, #c9dccf 4px 8px);
 }
 
 .budget.level-warn .budget-bar div {
@@ -573,65 +579,184 @@ p {
   color: #c9735a;
 }
 
-/* 週ごとのグラフ */
+/* 記録画面のグラフ。
+   週ごと・月ごと・カテゴリ別で大きさが変わらないよう、いちばん高いカテゴリ別に合わせて高さをそろえる
+   (足りない分は説明文の下に余白として入る) */
 .week-card {
+  min-height: 382px;
   padding: 18px;
 }
 
-.week-chart {
-  display: flex;
-  gap: 6px;
-  margin-top: 14px;
+.bar-chart {
+  margin-top: 32px;
 }
 
-.week-col {
+.bar-chart-plot {
+  position: relative;
+}
+
+.grid-line,
+.base-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid #eef1ec;
+}
+
+.base-line {
+  bottom: 0;
+  border-top: 1.5px solid #cfd8cc;
+}
+
+/* 予算の目安線 */
+.guide-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: 0;
+  border-top: 1.5px dashed #d9a441;
+  pointer-events: none;
+}
+
+.guide-line span {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 10px;
+  font-weight: 700;
+  color: #b5852b;
+  white-space: nowrap;
+}
+
+.bar-cols {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.bar-col {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.bar {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(70%, 34px);
+  border-radius: 6px 6px 0 0;
+  transform: translateX(-50%);
+  transition: height 0.3s, opacity 0.2s;
+}
+
+.bar-amount {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+/* カテゴリの予算の枠(棒ごと)。棒と同じ幅で、棒のうしろに出す */
+.bar-limit {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(70%, 34px);
+  border: 1.5px dashed #b4beb7;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: rgba(233, 238, 231, 0.45);
+  transform: translateX(-50%);
+  box-sizing: border-box;
+}
+
+/* 予算をこえたときは、棒の上に赤い点線を重ねて、こえた分が見えるようにする */
+.bar-limit.is-over {
+  z-index: 2;
+  width: min(84%, 42px);
+  border: none;
+  border-top: 2px dashed #fff;
+  border-radius: 0;
+  background: none;
+  box-shadow: 0 -1.5px 0 #c9735a;
+}
+
+.bar-label-amount {
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.bar-label-amount.is-over {
+  color: #c9735a;
+}
+
+.bar-amount {
+  z-index: 1;
+}
+
+/* タップしたときの吹き出し */
+.bar-tip {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--text);
+  color: #fff;
+  font-size: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.bar-tip.align-center {
+  transform: translateX(-50%);
+}
+
+.bar-tip strong {
+  font-size: 15px;
+}
+
+/* 週ごと・月ごと・カテゴリ別のどれでもグラフの高さが変わらないよう、ラベル部分の高さを固定する
+   (カテゴリ別はアイコン・名前・金額の3段がいちばん高い) */
+.bar-labels {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.bar-label {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   min-width: 0;
-}
-
-.week-amount {
-  font-size: 10px;
-  white-space: nowrap;
-  color: var(--sub);
-}
-
-.week-bar-area {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  width: 100%;
-  height: 130px;
-  border-radius: 8px;
-  background: var(--bg);
-}
-
-.week-bar {
-  width: 70%;
-  min-height: 0;
-  border-radius: 6px 6px 0 0;
-  background: #a9c7b6;
-}
-
-.week-col.is-now .week-bar {
-  background: var(--green);
-}
-
-.week-col.is-now .week-amount,
-.week-col.is-now .week-label {
-  font-weight: 700;
-  color: var(--green);
-}
-
-.week-label {
   font-size: 10px;
   font-weight: 500;
-  line-height: 1.3;
-  text-align: center;
   color: var(--sub);
+  white-space: nowrap;
+}
+
+.bar-label.is-strong {
+  font-weight: 700;
+  color: var(--green);
 }
 
 /* グラフの切り替え */
@@ -660,30 +785,7 @@ p {
   font-weight: 700;
 }
 
-.month-col {
-  padding: 0;
-  border: none;
-  background: none;
-}
-
-.month-col .week-amount {
-  font-size: 9px;
-}
-
-.month-col:not(.is-now) .week-bar {
-  background: #a9c7b6;
-}
-
-.month-col.is-now .week-bar-area {
-  outline: 2px solid var(--green-light);
-}
-
-.year-label {
-  font-size: 9px;
-  font-weight: 400;
-}
-
-/* カテゴリ別グラフ */
+/* グラフの月切り替え */
 .chart-month {
   display: flex;
   align-items: center;
@@ -699,18 +801,11 @@ p {
   height: 30px;
 }
 
-.cat-chart-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-}
-
+/* 説明文も2行ぶんの高さを取っておき、文の長さで高さが変わらないようにする */
 .week-note {
-  margin-top: 12px;
+  margin-top: 10px;
   font-size: 10px;
+  line-height: 1.5;
   color: var(--sub);
 }
 
@@ -836,6 +931,70 @@ p {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+}
+
+.mark-ring {
+  width: 7px;
+  height: 7px;
+  border: 1.8px solid;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.plan-sub .is-unknown {
+  font-family: inherit;
+  font-weight: 700;
+  color: #b5852b;
+}
+
+/* 設定の印の形えらび */
+.mark-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.mark-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 11px;
+  color: var(--sub);
+}
+
+.mark-option.is-selected {
+  border-color: var(--green);
+  background: var(--green-light);
+  font-weight: 700;
+  color: var(--green);
+}
+
+.mark-option-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+}
+
+.mark-option-preview .mark-dot {
+  width: 10px;
+  height: 10px;
+}
+
+.mark-option-preview .mark-ring {
+  width: 12px;
+  height: 12px;
+  border-width: 2.4px;
+}
+
+.mark-option-preview .mark-bar {
+  width: 20px;
+  height: 4px;
 }
 
 .mark-bar {

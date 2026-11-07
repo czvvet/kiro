@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   CalendarDays,
   CalendarPlus,
+  Landmark,
   ChartNoAxesColumnIncreasing,
   ChevronDown,
   ChevronLeft,
@@ -20,12 +21,14 @@ import {
 import { Settings as SettingsIcon } from 'lucide-react'
 import Mascot from './Mascot.jsx'
 import Splash from './Splash.jsx'
+import BarChart, { shortYen } from './BarChart.jsx'
 import { PlanMark, PlanRow } from './PlanParts.jsx'
 import SettingsPage from './SettingsPage.jsx'
 import {
   PLANS_KEY,
   SETTINGS_KEY,
   emptyPlan,
+  hasAmount,
   loadPlans,
   loadSettings,
   occurrences,
@@ -58,6 +61,7 @@ const CATEGORY_STYLE = {
   外食: { Icon: Croissant, bg: '#f6f1e6', color: '#a9823f' },
   衣類: { Icon: Shirt, bg: '#eef1f6', color: '#5a6f94' },
   趣味: { Icon: Sparkles, bg: '#f3eef6', color: '#86609a' },
+  固定費: { Icon: Landmark, bg: '#e9f1f9', color: '#3b82c4' }, // 家賃・光熱費・スマホ代など
   その他: { Icon: Package, bg: '#f0f1ef', color: '#77837c' },
 }
 const CATEGORIES = Object.keys(CATEGORY_STYLE)
@@ -96,7 +100,7 @@ const emptyForm = () => ({
 
 // キャラクターのセリフを決める。
 // 今月を見ているときは、公平にくらべるため先月も「同じ日まで」の合計を使う。
-// budget は「予算 − 引き落とし予定」の使えるお金。hasBudget が false なら予算の話はしない。
+// budget は「予算 − これからの予定」の使えるお金。hasBudget が false なら予算の話はしない。
 function mascotMessage({ cur, prev, isCurrent, hasBudget, budget, total, daysLeft }) {
   const when = isCurrent ? '先月の同じ日まで' : '先月'
   let mood = 'normal'
@@ -212,6 +216,9 @@ export default function App() {
   const [month, setMonth] = useState(today().slice(0, 7))
   const [selectedDay, setSelectedDay] = useState(today())
   const [chartMode, setChartMode] = useState('week')
+  const [chartSel, setChartSel] = useState(null) // グラフでタップした棒
+  // グラフの種類や月を変えたら、タップした棒の選択を外す
+  useEffect(() => setChartSel(null), [chartMode, month])
   const [showSplash, setShowSplash] = useState(true)
   // 月の予算(毎月同じ金額を使う。0は未設定)
   const [budget, setBudget] = useState(() => Number(localStorage.getItem(BUDGET_KEY)) || 0)
@@ -275,38 +282,76 @@ export default function App() {
     const [y, m] = month.split('-').map(Number)
     const list = []
     for (let d = 1; d <= daysInMonth(month); d++) {
-      if (d === 1 || new Date(y, m - 1, d).getDay() === 1) list.push({ start: d, end: d, total: 0 })
+      if (d === 1 || new Date(y, m - 1, d).getDay() === 1) list.push({ start: d, end: d, total: 0, count: 0 })
       list[list.length - 1].end = d
     }
     for (const i of monthItems) {
       const d = Number(i.date.slice(8, 10))
       const w = list.find((w) => d >= w.start && d <= w.end)
-      if (w) w.total += itemTotal(i)
+      if (w) {
+        w.total += itemTotal(i)
+        w.count += 1
+      }
     }
     return list
   }, [month, monthItems])
-  const weekMax = Math.max(1, ...weeks.map((w) => w.total))
 
   // 選んだ月までの6か月分の合計(カテゴリ別の内訳つき)
   const months = useMemo(() => {
-    const list = Array.from({ length: 6 }, (_, k) => ({ key: shiftMonth(month, k - 5), total: 0, cats: {} }))
+    const list = Array.from({ length: 6 }, (_, k) => ({ key: shiftMonth(month, k - 5), total: 0, count: 0, cats: {} }))
     for (const i of items) {
       const mo = list.find((x) => i.date.startsWith(x.key))
       if (!mo) continue
       mo.total += itemTotal(i)
+      mo.count += 1
       mo.cats[i.category] = (mo.cats[i.category] || 0) + itemTotal(i)
     }
     return list
   }, [items, month])
-  const monthMax = Math.max(1, ...months.map((x) => x.total))
   const monthCatTotals = Object.fromEntries(byCategory)
   // 記録画面のカテゴリ一覧: 使ったカテゴリ + 予算を決めたカテゴリ
   const catRows = CATEGORIES.filter((c) => monthCatTotals[c] || catBudgets[c] > 0)
     .map((c) => ({ cat: c, sum: monthCatTotals[c] || 0, limit: catBudgets[c] || 0 }))
     .sort((a, b) => b.sum - a.sum)
   const overCats = catRows.filter((r) => r.limit > 0 && r.sum > r.limit)
-  const catMax = Math.max(1, ...byCategory.map(([, v]) => v))
   const todayNum = month === today().slice(0, 7) ? Number(today().slice(8, 10)) : 0
+
+  // 記録画面のグラフに渡すデータ
+  const monthNum = Number(month.slice(5))
+  const chartBars =
+    chartMode === 'week'
+      ? weeks.map((w) => ({
+          key: `w${w.start}`,
+          label: `${monthNum}/${w.start}〜`,
+          tipLabel: `${monthNum}/${w.start}〜${monthNum}/${w.end}`,
+          value: w.total,
+          count: w.count,
+          strong: todayNum >= w.start && todayNum <= w.end,
+        }))
+      : chartMode === 'month'
+        ? months.map((x) => {
+            const [y, m] = x.key.split('-').map(Number)
+            return { key: x.key, label: `${m}月`, tipLabel: `${y}年${m}月`, value: x.total, count: x.count, strong: x.key === month }
+          })
+        : CATEGORIES.map((c) => {
+            const { Icon, color } = CATEGORY_STYLE[c]
+            return {
+              key: c,
+              label: c,
+              value: monthCatTotals[c] || 0,
+              count: monthItems.filter((i) => i.category === c).length,
+              color,
+              limit: catBudgets[c] || 0,
+              icon: <Icon size={14} strokeWidth={1.8} color={color} />,
+            }
+          })
+  // 予算の目安線: 週ごとは「月の予算 ÷ 日数 × 7日」、月ごとは月の予算
+  const chartGuide =
+    budget > 0 && chartMode === 'week'
+      ? { value: Math.round((budget / daysInMonth(month)) * 7), label: `1週の目安 ${shortYen(Math.round((budget / daysInMonth(month)) * 7))}` }
+      : budget > 0 && chartMode === 'month'
+        ? { value: budget, label: `月の予算 ${shortYen(budget)}` }
+        : null
 
   // カレンダーのマス(日曜はじまり。1日の前は空白で埋める)
   const calendarCells = useMemo(() => {
@@ -328,7 +373,6 @@ export default function App() {
 
   // 予定まわり
   const monthEntries = useMemo(() => planEntries(plans, month), [plans, month])
-  const billTotal = monthEntries.filter((e) => e.plan.type === 'bill').reduce((s, e) => s + (Number(e.plan.amount) || 0), 0)
   const entriesByDate = useMemo(() => {
     const map = {}
     for (const e of monthEntries) (map[e.date] ||= []).push(e)
@@ -338,11 +382,20 @@ export default function App() {
     () => planEntries(plans, selectedDay.slice(0, 7)).filter((e) => e.date === selectedDay),
     [plans, selectedDay],
   )
-  // 買う予定にチェック済みか(記録を履歴から消していたら、未チェックにもどす)
+  // 予定が完了済みか(記録を履歴から消していたら、未完了にもどす)
   const isDone = (plan, date) => {
     const id = plan.done?.[date]
     return Boolean(id) && items.some((i) => i.id === id)
   }
+  // 完了したときに買い物履歴に入れた金額
+  const doneAmountOf = (plan, date) => {
+    const item = items.find((i) => i.id === plan.done?.[date])
+    return item ? itemTotal(item) : null
+  }
+  // まだ完了していない予定(金額が決まっているものの合計と、金額未定の件数)
+  const pendingEntries = monthEntries.filter((e) => !isDone(e.plan, e.date))
+  const upcomingTotal = pendingEntries.filter((e) => hasAmount(e.plan)).reduce((s, e) => s + Number(e.plan.amount), 0)
+  const unknownCount = pendingEntries.filter((e) => !hasAmount(e.plan)).length
   const markDone = (planId, date, itemId) =>
     setPlans((ps) =>
       ps.map((p) => {
@@ -354,14 +407,14 @@ export default function App() {
       }),
     )
 
-  const toggleBuy = (plan, date) => {
+  const togglePlan = (plan, date) => {
     if (isDone(plan, date)) {
-      if (!confirm('チェックを外すと、買い物履歴からこの記録も消えます。よろしいですか?')) return
+      if (!confirm('完了を取り消すと、買い物履歴からこの記録も消えます。よろしいですか?')) return
       setItems(items.filter((i) => i.id !== plan.done[date]))
       markDone(plan.id, date, null)
       return
     }
-    if (Number(plan.amount) > 0) {
+    if (hasAmount(plan)) {
       // 金額が決まっていれば、そのまま買い物履歴に記録する
       const id = newId()
       setItems([
@@ -388,7 +441,7 @@ export default function App() {
     }
   }
 
-  const openPlanNew = (type, date) => setPlanForm(emptyPlan(type, date))
+  const openPlanNew = (date) => setPlanForm(emptyPlan(date))
   const openPlanEdit = (plan) => setPlanForm({ ...plan, amount: plan.amount ? String(plan.amount) : '' })
   const updatePlan = (key) => (e) =>
     setPlanForm({ ...planForm, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
@@ -396,13 +449,15 @@ export default function App() {
   const savePlan = (e) => {
     e.preventDefault()
     if (!planForm.name.trim()) return
+    const amount = Math.max(0, Math.floor(Number(planForm.amount) || 0))
     const data = {
-      type: planForm.type,
       name: planForm.name.trim(),
-      amount: Math.max(0, Math.floor(Number(planForm.amount) || 0)),
+      amount: planForm.amountUnknown ? 0 : amount,
+      // 「金額未定」にチェックしたか、金額を入れていなければ未定あつかい
+      amountUnknown: Boolean(planForm.amountUnknown) || amount === 0,
       date: planForm.date,
       repeat: Boolean(planForm.repeat),
-      category: planForm.type === 'buy' ? planForm.category : '',
+      category: planForm.category || 'その他',
       memo: (planForm.memo || '').trim(),
     }
     if (planForm.id) setPlans(plans.map((p) => (p.id === planForm.id ? { ...p, ...data } : p)))
@@ -483,8 +538,8 @@ export default function App() {
     items
       .filter((i) => i.date.startsWith(mo) && Number(i.date.slice(8, 10)) <= limitDay)
       .reduce((s, i) => s + itemTotal(i), 0)
-  // 使えるお金 = 予算 − その月の引き落とし予定(B案)
-  const spendable = budget - billTotal
+  // 使えるお金 = 予算 − これからの予定(金額が決まっているもの)。使った金額は total
+  const spendable = budget - upcomingTotal
   const talk = mascotMessage({
     cur: sumUntil(month),
     prev: sumUntil(shiftMonth(month, -1)),
@@ -495,20 +550,20 @@ export default function App() {
     daysLeft: isCurrentMonth ? daysInMonth(month) - now.getDate() + 1 : 0,
   })
 
-  // 3日以内の引き落としをキャラクターが知らせる
-  const billNotice = (() => {
+  // 3日以内のまだ完了していない予定をキャラクターが知らせる
+  const planNotice = (() => {
     const t = today()
     const nextMonth = shiftMonth(t.slice(0, 7), 1)
     const upcoming = plans
-      .filter((p) => p.type === 'bill')
       .flatMap((p) => [...occurrences(p, t.slice(0, 7)), ...occurrences(p, nextMonth)].map((date) => ({ p, date })))
+      .filter(({ p, date }) => !isDone(p, date))
       .map(({ p, date }) => ({ p, diff: Math.round((new Date(date + 'T00:00:00') - new Date(t + 'T00:00:00')) / 86400000) }))
       .filter((x) => x.diff >= 0 && x.diff <= 3)
       .sort((a, b) => a.diff - b.diff)[0]
     if (!upcoming) return ''
     const when = ['今日', '明日', 'あさって', '3日後'][upcoming.diff]
-    const amount = upcoming.p.amount > 0 ? `(${yen(upcoming.p.amount)})` : ''
-    return `${when}は「${upcoming.p.name}」の引き落とし${amount}だよ。`
+    const amount = hasAmount(upcoming.p) ? `(${yen(upcoming.p.amount)})` : '(金額未定)'
+    return `${when}は「${upcoming.p.name}」${amount}の予定があるよ。`
   })()
 
   // カテゴリ別の予算をこえたら、キャラクターが知らせる
@@ -520,7 +575,8 @@ export default function App() {
         : `${overCats.map((r) => r.cat).join('と')}が予算オーバーだよ。`
   if (catNotice) talk.mood = 'worried'
 
-  const budgetRate = budget > 0 ? (spendable > 0 ? total / spendable : 2) : 0
+  // 使った金額 + これからの予定 が予算に対してどれくらいか
+  const budgetRate = budget > 0 ? (total + upcomingTotal) / budget : 0
   const budgetLevel = budgetRate > 1 ? 'over' : budgetRate >= 0.8 ? 'warn' : 'ok'
 
   const saveBudget = (e) => {
@@ -572,9 +628,9 @@ export default function App() {
                   <div className="budget-row">
                     <span>
                       {budgetLevel === 'over' ? (
-                        <>オーバー <strong className="num">{yen(total - Math.max(0, spendable))}</strong></>
+                        <>オーバー <strong className="num">{yen(total + upcomingTotal - budget)}</strong></>
                       ) : (
-                        <>のこり <strong className="num">{yen(spendable - total)}</strong></>
+                        <>のこり <strong className="num">{yen(budget - total - upcomingTotal)}</strong></>
                       )}
                     </span>
                     <button className="link-btn" onClick={() => setBudgetInput(String(budget))}>
@@ -582,13 +638,18 @@ export default function App() {
                       <PencilLine size={12} />
                     </button>
                   </div>
+                  {/* 濃い色が使った金額、うすい色がこれからの予定 */}
                   <div className="budget-bar">
-                    <div style={{ width: `${Math.min(100, budgetRate * 100)}%` }} />
+                    <div style={{ width: `${Math.min(100, (total / budget) * 100)}%` }} />
+                    <div
+                      className="budget-bar-plan"
+                      style={{ width: `${Math.max(0, Math.min(100 - (total / budget) * 100, (upcomingTotal / budget) * 100))}%` }}
+                    />
                   </div>
-                  {billTotal > 0 && (
+                  {(upcomingTotal > 0 || unknownCount > 0) && (
                     <button className="budget-calc" onClick={() => setTab('calendar')}>
-                      予算 {yen(budget)} − 引き落とし予定 {yen(billTotal)} = 使えるお金{' '}
-                      <strong className="num">{yen(spendable)}</strong>
+                      使った {yen(total)} + これからの予定 {yen(upcomingTotal)}
+                      {unknownCount > 0 && `(ほかに金額未定 ${unknownCount}件)`}
                     </button>
                   )}
                 </div>
@@ -611,7 +672,7 @@ export default function App() {
                 <p>{talk.main}</p>
                 {talk.sub && <p className="bubble-sub">{talk.sub}</p>}
                 {catNotice && <p className="bubble-sub bubble-over">{catNotice}</p>}
-                {billNotice && <p className="bubble-sub bubble-notice" style={{ color: settings.billColor }}>{billNotice}</p>}
+                {planNotice && <p className="bubble-sub bubble-notice" style={{ color: settings.planColor }}>{planNotice}</p>}
               </div>
             </section>
 
@@ -710,14 +771,13 @@ export default function App() {
                       <span className="cal-day num">{c.day}</span>
                       <span className="cal-total num">{c.total > 0 ? c.total.toLocaleString('ja-JP') : ''}</span>
                       <span className="cal-marks">
-                        {(entriesByDate[c.date] || []).slice(0, 3).map((e) => (
+                        {/* 予定がいくつあっても印は1つ。全部完了していたらうすくする */}
+                        {entriesByDate[c.date]?.length > 0 && (
                           <PlanMark
-                            key={e.plan.id}
-                            type={e.plan.type}
                             settings={settings}
-                            faded={e.plan.type === 'buy' && isDone(e.plan, e.date)}
+                            faded={entriesByDate[c.date].every((e) => isDone(e.plan, e.date))}
                           />
-                        ))}
+                        )}
                       </span>
                     </button>
                   ) : (
@@ -727,12 +787,14 @@ export default function App() {
               </div>
               <div className="cal-legend">
                 <span className="legend-item">
-                  <PlanMark type="bill" settings={settings} /> 引き落とし
-                  {billTotal > 0 && <span className="num">{yen(billTotal)}</span>}
+                  <PlanMark settings={settings} /> 予定
                 </span>
-                <span className="legend-item">
-                  <PlanMark type="buy" settings={settings} /> 買う予定
-                </span>
+                {(upcomingTotal > 0 || unknownCount > 0) && (
+                  <span className="legend-item">
+                    これからの予定 <span className="num">{yen(upcomingTotal)}</span>
+                    {unknownCount > 0 && ` + 金額未定 ${unknownCount}件`}
+                  </span>
+                )}
               </div>
             </section>
 
@@ -749,10 +811,11 @@ export default function App() {
                         key={e.plan.id}
                         plan={e.plan}
                         done={isDone(e.plan, e.date)}
+                        doneAmount={doneAmountOf(e.plan, e.date)}
                         settings={settings}
                         categoryIcon={<CategoryIcon category={e.plan.category || 'その他'} />}
                         onEdit={() => openPlanEdit(e.plan)}
-                        onToggle={() => toggleBuy(e.plan, e.date)}
+                        onToggle={() => togglePlan(e.plan, e.date)}
                       />
                     ))}
                   </ul>
@@ -770,7 +833,7 @@ export default function App() {
                     <PencilLine size={15} />
                     買い物を記録
                   </button>
-                  <button className="link-btn" onClick={() => openPlanNew('buy', selectedDay)}>
+                  <button className="link-btn" onClick={() => openPlanNew(selectedDay)}>
                     <CalendarPlus size={15} />
                     予定を追加
                   </button>
@@ -826,80 +889,21 @@ export default function App() {
                 </button>
               </div>
 
-              {chartMode === 'month' && (
-                <>
-                  <div className="week-chart">
-                    {months.map((x) => {
-                      const [y, m] = x.key.split('-').map(Number)
-                      return (
-                        <button
-                          key={x.key}
-                          className={`week-col month-col ${x.key === month ? 'is-now' : ''}`}
-                          onClick={() => setMonth(x.key)}
-                        >
-                          <span className="week-amount num">{x.total > 0 ? yen(x.total) : '-'}</span>
-                          <div className="week-bar-area">
-                            <div className="week-bar" style={{ height: `${(x.total / monthMax) * 100}%` }} />
-                          </div>
-                          <span className="week-label num">
-                            {m}月
-                            <br />
-                            <span className="year-label">{m === 1 || x === months[0] ? y : '\u00a0'}</span>
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <p className="week-note">6か月分 ・ 棒をタップするとその月を表示</p>
-                </>
-              )}
-
-              {chartMode === 'category' && (
-                <>
-                  <div className="week-chart">
-                    {CATEGORIES.map((c) => {
-                      const sum = monthCatTotals[c] || 0
-                      const { Icon, color, bg } = CATEGORY_STYLE[c]
-                      return (
-                        <div key={c} className="week-col">
-                          <span className="week-amount num">{sum > 0 ? yen(sum) : '-'}</span>
-                          <div className="week-bar-area">
-                            <div className="week-bar" style={{ height: `${(sum / catMax) * 100}%`, background: color }} />
-                          </div>
-                          <span className="cat-chart-icon" style={{ background: bg, color }}>
-                            <Icon size={15} strokeWidth={1.8} />
-                          </span>
-                          <span className="week-label">{c}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                </>
-              )}
-
-              {chartMode === 'week' && (
-              <>
-              <div className="week-chart">
-                {weeks.map((w) => {
-                  const isNow = todayNum >= w.start && todayNum <= w.end
-                  return (
-                    <div key={w.start} className={`week-col ${isNow ? 'is-now' : ''}`}>
-                      <span className="week-amount num">{w.total > 0 ? yen(w.total) : '-'}</span>
-                      <div className="week-bar-area">
-                        <div className="week-bar" style={{ height: `${(w.total / weekMax) * 100}%` }} />
-                      </div>
-                      <span className="week-label num">
-                        {Number(month.slice(5))}/{w.start}
-                        <br />〜{w.end}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-              <p className="week-note">月曜はじまり ・ 濃い色が今週</p>
-              </>
-              )}
+              <BarChart
+                bars={chartBars}
+                guide={chartGuide}
+                selectedKey={chartSel}
+                onSelect={setChartSel}
+                amountBelow={chartMode === 'category'}
+                // 週ごと・月ごとはラベルが1段なので、カテゴリ別(3段)との差の33pxぶんグラフを高くする
+                height={chartMode === 'category' ? 150 : 183}
+              />
+              <p className="week-note">
+                {chartMode === 'week' && '月曜はじまり ・ 濃い色が今週'}
+                {chartMode === 'month' && '6か月分 ・ 濃い色が選んでいる月'}
+                {chartMode === 'category' && '点線の枠は予算 ・ 赤字はオーバー'}
+                {' ・ 棒をタップで詳しく'}
+              </p>
             </section>
             <section className="card">
               <div className="card-head">
@@ -1047,32 +1051,12 @@ export default function App() {
             <div className="handle" />
             <h2>{planForm.id ? '予定を編集' : '予定を追加'}</h2>
 
-            <div className="segment plan-type">
-              {[
-                ['bill', '引き落とし'],
-                ['buy', '買う予定'],
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={planForm.type === key ? 'active' : ''}
-                  style={planForm.type === key ? { background: key === 'bill' ? settings.billColor : settings.buyColor } : undefined}
-                  onClick={() =>
-                    // 新しい予定では、引き落としは毎月くり返すのを初期値にする
-                    setPlanForm({ ...planForm, type: key, repeat: planForm.id ? planForm.repeat : key === 'bill' })
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
             <label>
-              {planForm.type === 'bill' ? '名前' : '買う物'} <span className="required">必須</span>
+              名前 <span className="required">必須</span>
               <input
                 value={planForm.name}
                 onChange={updatePlan('name')}
-                placeholder={planForm.type === 'bill' ? '例:家賃、電気代、スマホ代' : '例:洗剤、誕生日プレゼント'}
+                placeholder="例:家賃、電気代、洗剤、誕生日プレゼント"
                 required
                 autoFocus
               />
@@ -1080,14 +1064,15 @@ export default function App() {
 
             <div className="row">
               <label>
-                {planForm.type === 'bill' ? '金額(円)' : '予算の目安(円)'}
+                金額(円)
                 <input
                   type="number"
                   inputMode="numeric"
                   min="0"
-                  value={planForm.amount}
+                  value={planForm.amountUnknown ? '' : planForm.amount}
                   onChange={updatePlan('amount')}
-                  placeholder={planForm.type === 'bill' ? '目安でOK' : '未定でもOK'}
+                  placeholder={planForm.amountUnknown ? '未定' : '0'}
+                  disabled={planForm.amountUnknown}
                 />
               </label>
               <label>
@@ -1097,30 +1082,34 @@ export default function App() {
             </div>
 
             <label className="toggle">
-              <input type="checkbox" checked={planForm.repeat} onChange={updatePlan('repeat')} />
+              <input type="checkbox" checked={Boolean(planForm.amountUnknown)} onChange={updatePlan('amountUnknown')} />
+              <span>
+                金額未定
+                <small>電気代などあとで金額がわかるもの。完了するときに金額を入れます</small>
+              </span>
+            </label>
+
+            <label className="toggle">
+              <input type="checkbox" checked={Boolean(planForm.repeat)} onChange={updatePlan('repeat')} />
               <span>
                 毎月くり返す
                 <small>毎月{Number(planForm.date.slice(8, 10))}日に自動でカレンダーに出ます</small>
               </span>
             </label>
 
-            {planForm.type === 'buy' && (
-              <label>
-                カテゴリ
-                <select value={planForm.category} onChange={updatePlan('category')}>
-                  {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                </select>
-              </label>
-            )}
+            <label>
+              カテゴリ
+              <select value={planForm.category || 'その他'} onChange={updatePlan('category')}>
+                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </label>
 
             <label>
               メモ
               <textarea rows="2" maxLength="200" value={planForm.memo || ''} onChange={updatePlan('memo')} />
             </label>
 
-            {planForm.type === 'buy' && (
-              <p className="sheet-note">買ったらカレンダーでチェックを付けると、買い物履歴に記録されます。</p>
-            )}
+            <p className="sheet-note">予定どおりに済んだら、カレンダーで「完了」を押すと買い物履歴に記録されます。</p>
 
             <div className="actions">
               {planForm.id && (

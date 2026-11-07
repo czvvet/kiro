@@ -1,20 +1,25 @@
-// 引き落とし予定・買う予定と、画面の設定をあつかう処理
+// 予定(引き落とし・買う予定をまとめたもの)と、画面の設定をあつかう処理
 
 export const PLANS_KEY = 'shopping-log-plans'
 export const SETTINGS_KEY = 'shopping-log-settings'
 
 export const DEFAULT_SETTINGS = {
-  billColor: '#3b82c4', // 引き落とし(青)
-  buyColor: '#e8913a', // 買う予定(オレンジ)
-  markStyle: 'dot', // 'dot' | 'bar' | 'icon'
+  planColor: '#e8913a', // 予定の色(オレンジ)
+  markStyle: 'dot',
 }
 
-export const COLOR_CHOICES = ['#3b82c4', '#e8913a', '#3f7961', '#c9735a', '#86609a', '#d9a441', '#5a6f94', '#e0699a']
+export const COLOR_CHOICES = ['#e8913a', '#3b82c4', '#3f7961', '#c9735a', '#86609a', '#d9a441', '#5a6f94', '#e0699a']
 
+// カレンダーの印の形
 export const MARK_STYLES = [
   ['dot', 'まる'],
+  ['ring', 'わっか'],
   ['bar', 'せん'],
-  ['icon', 'アイコン'],
+  ['star', 'ほし'],
+  ['heart', 'ハート'],
+  ['flag', 'はた'],
+  ['pin', 'ピン'],
+  ['bell', 'ベル'],
 ]
 
 const pad = (n) => String(n).padStart(2, '0')
@@ -32,13 +37,28 @@ function loadJSON(key, fallback) {
   }
 }
 
+// 以前の「引き落とし / 買う予定」の2種類の予定を、1種類の予定に読み替える
 export function loadPlans() {
   const v = loadJSON(PLANS_KEY, [])
-  return Array.isArray(v) ? v : []
+  if (!Array.isArray(v)) return []
+  return v.map((p) => {
+    const { type, ...rest } = p
+    const plan = { ...rest }
+    if (type === 'bill' && !plan.category) plan.category = '固定費'
+    if (plan.amountUnknown === undefined) plan.amountUnknown = !(Number(plan.amount) > 0)
+    return plan
+  })
 }
 
 export function loadSettings() {
-  return { ...DEFAULT_SETTINGS, ...loadJSON(SETTINGS_KEY, {}) }
+  const saved = loadJSON(SETTINGS_KEY, {})
+  const s = { ...DEFAULT_SETTINGS, ...saved }
+  // 以前の設定では「買う予定の色」を予定の色として使う
+  if (!saved.planColor && saved.buyColor) s.planColor = saved.buyColor
+  if (!MARK_STYLES.some(([k]) => k === s.markStyle)) s.markStyle = 'dot'
+  delete s.billColor
+  delete s.buyColor
+  return s
 }
 
 // その月に予定が出る日付。
@@ -56,15 +76,18 @@ export function occurrences(plan, month) {
 export function planEntries(plans, month) {
   return plans
     .flatMap((plan) => occurrences(plan, month).map((date) => ({ plan, date })))
-    .sort((a, b) => a.date.localeCompare(b.date) || (a.plan.type === 'bill' ? -1 : 1))
+    .sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export const emptyPlan = (type, date) => ({
-  type,
+// 金額が決まっている予定か
+export const hasAmount = (plan) => !plan.amountUnknown && Number(plan.amount) > 0
+
+export const emptyPlan = (date) => ({
   name: '',
   amount: '',
+  amountUnknown: false,
   date,
-  repeat: type === 'bill',
+  repeat: false,
   category: '食費',
   memo: '',
 })

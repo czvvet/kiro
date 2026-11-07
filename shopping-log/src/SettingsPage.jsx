@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, PencilLine } from 'lucide-react'
-import { COLOR_CHOICES, DEFAULT_SETTINGS, MARK_STYLES } from './plans.js'
+import { COLOR_CHOICES, DEFAULT_SETTINGS, MARK_STYLES, hasAmount } from './plans.js'
 import { PlanMark } from './PlanParts.jsx'
 
 const yen = (n) => `¥${Number(n).toLocaleString('ja-JP')}`
@@ -57,7 +57,7 @@ export default function SettingsPage({
             <span>{budget > 0 ? yen(budget) : 'まだ決めていません'}</span>
             <PencilLine size={15} />
           </button>
-          <p className="setting-note">予算から引き落とし予定を引いた分が「使えるお金」になります。</p>
+          <p className="setting-note">予算から、使った金額とこれからの予定(金額が決まっているもの)を引いた分が「のこり」になります。</p>
         </section>
 
         <section className="card settings-card">
@@ -78,31 +78,24 @@ export default function SettingsPage({
 
           <div className="setting-block">
             <div className="setting-label">印の形</div>
-            <div className="segment">
+            <div className="mark-grid">
               {MARK_STYLES.map(([key, label]) => (
                 <button
                   key={key}
-                  className={settings.markStyle === key ? 'active' : ''}
+                  className={`mark-option ${settings.markStyle === key ? 'is-selected' : ''}`}
                   onClick={() => set('markStyle')(key)}
+                  aria-pressed={settings.markStyle === key}
                 >
+                  <span className="mark-option-preview">
+                    <PlanMark settings={settings} style={key} size={16} />
+                  </span>
                   {label}
                 </button>
               ))}
             </div>
           </div>
 
-          <ColorPicker label="引き落とし予定の色" value={settings.billColor} onChange={set('billColor')} />
-          <ColorPicker label="買う予定の色" value={settings.buyColor} onChange={set('buyColor')} />
-
-          <div className="mark-preview">
-            <span className="setting-label">見本</span>
-            <span className="legend-item">
-              <PlanMark type="bill" settings={settings} /> 引き落とし
-            </span>
-            <span className="legend-item">
-              <PlanMark type="buy" settings={settings} /> 買う予定
-            </span>
-          </div>
+          <ColorPicker label="予定の色" value={settings.planColor} onChange={set('planColor')} />
 
           <button className="link-btn" onClick={() => setSettings({ ...DEFAULT_SETTINGS })}>
             はじめの設定にもどす
@@ -119,11 +112,11 @@ export default function SettingsPage({
                 <li key={p.id}>
                   <button className="setting-row" onClick={() => onEditPlan(p)}>
                     <span className="legend-item">
-                      <PlanMark type={p.type} settings={settings} />
+                      <PlanMark settings={settings} />
                       毎月{Number(p.date.slice(8))}日 {p.name}
                     </span>
                     <span className="setting-row-end">
-                      <span className="num">{p.amount > 0 ? yen(p.amount) : '-'}</span>
+                      <span className="num">{hasAmount(p) ? yen(p.amount) : '金額未定'}</span>
                       <ChevronRight size={15} />
                     </span>
                   </button>

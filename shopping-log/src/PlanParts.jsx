@@ -1,58 +1,42 @@
-import { Check, Landmark, Repeat, ShoppingCart } from 'lucide-react'
+import { Bell, Check, Flag, Heart, MapPin, Repeat, Star } from 'lucide-react'
+import { hasAmount } from './plans.js'
 
 const yen = (n) => `¥${Number(n).toLocaleString('ja-JP')}`
 
+const ICON_MARKS = { star: Star, heart: Heart, flag: Flag, pin: MapPin, bell: Bell }
+
 // カレンダーのマスに付ける小さな印
-export function PlanMark({ type, settings, faded = false }) {
-  const color = type === 'bill' ? settings.billColor : settings.buyColor
-  const style = { opacity: faded ? 0.35 : 1 }
-  if (settings.markStyle === 'icon') {
-    const Icon = type === 'bill' ? Landmark : ShoppingCart
-    return <Icon className="mark-icon" size={11} color={color} strokeWidth={2.4} style={style} />
+export function PlanMark({ settings, style: markStyle, faded = false, size = 11 }) {
+  const color = settings.planColor
+  const kind = markStyle || settings.markStyle
+  const opacity = faded ? 0.35 : 1
+  const Icon = ICON_MARKS[kind]
+  if (Icon) {
+    return <Icon className="mark-icon" size={size} color={color} fill={color} strokeWidth={1.5} style={{ opacity }} />
   }
-  return <span className={`mark mark-${settings.markStyle}`} style={{ ...style, background: color }} />
+  if (kind === 'ring') return <span className="mark mark-ring" style={{ opacity, borderColor: color }} />
+  return <span className={`mark mark-${kind}`} style={{ opacity, background: color }} />
 }
 
-const RepeatLabel = () => (
-  <>
-    {' ・ '}
-    <Repeat size={10} /> 毎月
-  </>
-)
-
-// 予定の1行。
-// 引き落とし: 左にアイコン、右に金額。
-// 買う予定: 左にカテゴリのアイコン、右に「買った」ボタン(押したあとは✓だけ)。
-export function PlanRow({ plan, done, settings, categoryIcon, onEdit, onToggle }) {
-  if (plan.type === 'bill') {
-    const color = settings.billColor
-    return (
-      <li className="plan-row">
-        <span className="plan-icon" style={{ background: `${color}1f`, color }}>
-          <Landmark size={19} strokeWidth={1.9} />
-        </span>
-        <button className="plan-main" onClick={onEdit}>
-          <span className="plan-name">{plan.name}</span>
-          <span className="plan-sub">
-            <span style={{ color }}>引き落とし</span>
-            {plan.repeat && <RepeatLabel />}
-          </span>
-        </button>
-        <span className="plan-amount num">{plan.amount > 0 ? yen(plan.amount) : '-'}</span>
-      </li>
-    )
-  }
-
-  const color = settings.buyColor
+// 予定の1行。左にカテゴリのアイコン、右に「完了」ボタン(押したあとは✓だけ)
+export function PlanRow({ plan, done, doneAmount, settings, categoryIcon, onEdit, onToggle }) {
+  const color = settings.planColor
+  let amountText = hasAmount(plan) ? yen(plan.amount) : '金額未定'
+  if (done && doneAmount != null) amountText = yen(doneAmount)
   return (
     <li className={`plan-row ${done ? 'is-done' : ''}`}>
       <span className="plan-cat">{categoryIcon}</span>
       <button className="plan-main" onClick={onEdit}>
         <span className="plan-name">{plan.name}</span>
         <span className="plan-sub">
-          <span className="num">{plan.amount > 0 ? yen(plan.amount) : '金額未定'}</span>
+          <span className={`num ${!hasAmount(plan) && !done ? 'is-unknown' : ''}`}>{amountText}</span>
           {plan.category && ` ・ ${plan.category}`}
-          {plan.repeat && <RepeatLabel />}
+          {plan.repeat && (
+            <>
+              {' ・ '}
+              <Repeat size={10} /> 毎月
+            </>
+          )}
         </span>
       </button>
       {done ? (
@@ -60,13 +44,13 @@ export function PlanRow({ plan, done, settings, categoryIcon, onEdit, onToggle }
           className="bought-btn is-done"
           style={{ background: color, borderColor: color }}
           onClick={onToggle}
-          aria-label="買ったチェックを外す"
+          aria-label="完了のチェックを外す"
         >
           <Check size={17} color="#fff" strokeWidth={3} />
         </button>
       ) : (
         <button className="bought-btn" style={{ borderColor: color, color }} onClick={onToggle}>
-          買った
+          完了
         </button>
       )}
     </li>
