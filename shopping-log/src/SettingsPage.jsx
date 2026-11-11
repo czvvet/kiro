@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, PencilLine } from 'lucide-react'
+import { ChevronLeft, ChevronRight, PencilLine, Plus } from 'lucide-react'
 import { COLOR_CHOICES, DEFAULT_SETTINGS, MARK_STYLES, hasAmount } from './plans.js'
 import { PlanMark } from './PlanParts.jsx'
 
@@ -33,6 +33,7 @@ export default function SettingsPage({
   onEditCatBudgets,
   plans,
   onEditPlan,
+  onAddFixed,
   onBack,
 }) {
   const catEntries = Object.entries(catBudgets).filter(([, v]) => v > 0)
@@ -62,12 +63,20 @@ export default function SettingsPage({
 
         <section className="card settings-card">
           <h2 className="card-title">カテゴリ別の予算</h2>
-          <button className="setting-row" onClick={onEditCatBudgets}>
-            <span>
-              {catEntries.length === 0
-                ? 'まだ決めていません'
-                : catEntries.map(([c, v]) => `${c} ${yen(v)}`).join(' ・ ')}
-            </span>
+          <button className="setting-row cat-budget-summary" onClick={onEditCatBudgets}>
+            {catEntries.length === 0 ? (
+              <span>まだ決めていません</span>
+            ) : (
+              // カテゴリ名と金額を1行ずつ、左右にそろえて並べる
+              <ul className="cat-budget-lines">
+                {catEntries.map(([c, v]) => (
+                  <li key={c}>
+                    <span>{c}</span>
+                    <span className="num">{yen(v)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <PencilLine size={15} />
           </button>
           <p className="setting-note">「記録」の画面で、カテゴリごとに予算までの残りが見られます。</p>
@@ -105,7 +114,9 @@ export default function SettingsPage({
         <section className="card settings-card">
           <h2 className="card-title">毎月くり返す予定</h2>
           {repeating.length === 0 ? (
-            <p className="setting-note">カレンダーで予定を追加するときに「毎月くり返す」を選ぶと、ここに並びます。</p>
+            <p className="setting-note">
+              家賃や電気代などを「固定費を追加」から登録すると、毎月カレンダーに出ます。カレンダーで「毎月くり返す」を選んだ予定も、ここに並びます。
+            </p>
           ) : (
             <ul className="setting-list">
               {repeating.map((p) => (
@@ -124,6 +135,11 @@ export default function SettingsPage({
               ))}
             </ul>
           )}
+          {/* 家賃・光熱費などを、毎月くり返す「固定費」の予定として追加する */}
+          <button className="add-fixed-btn" onClick={onAddFixed}>
+            <Plus size={16} strokeWidth={2} />
+            固定費を追加
+          </button>
         </section>
       </main>
     </>

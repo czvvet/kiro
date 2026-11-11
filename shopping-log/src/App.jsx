@@ -7,19 +7,20 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Croissant,
+  BookOpen,
   House,
+  Milk,
   Package,
   PencilLine,
-  Pill,
+  Plus,
   ReceiptText,
   Shirt,
   ShoppingBasket,
-  Sparkles,
   Target,
+  Utensils,
 } from 'lucide-react'
 import { Settings as SettingsIcon } from 'lucide-react'
-import Mascot from './Mascot.jsx'
+import Dog from './Dog.jsx'
 import Splash from './Splash.jsx'
 import BarChart, { shortYen } from './BarChart.jsx'
 import { PlanMark, PlanRow } from './PlanParts.jsx'
@@ -54,15 +55,18 @@ function loadCatBudgets() {
 // 予算に対する使いぐあい。8割をこえたら注意、こえたらオーバー
 const budgetLevelOf = (used, limit) => (used > limit ? 'over' : used >= limit * 0.8 ? 'warn' : 'ok')
 
-// カテゴリごとのアイコンと背景色(Figmaの「最近の買い物」に合わせる)
+// カテゴリごとのアイコンと色。基本はベージュの箱にオリーブ色のアイコン、
+// 日用品と固定費だけうすい赤の箱に赤いアイコン(新しいデザインに合わせる)
+const SOFT = { bg: '#ede6d6', color: '#6e6a52' }
+const WARM = { bg: '#f5e1da', color: '#b94a38' }
 const CATEGORY_STYLE = {
-  食費: { Icon: ShoppingBasket, bg: '#eaf2e8', color: '#3f7961' },
-  日用品: { Icon: Pill, bg: '#fcf0ea', color: '#c9735a' },
-  外食: { Icon: Croissant, bg: '#f6f1e6', color: '#a9823f' },
-  衣類: { Icon: Shirt, bg: '#eef1f6', color: '#5a6f94' },
-  趣味: { Icon: Sparkles, bg: '#f3eef6', color: '#86609a' },
-  固定費: { Icon: Landmark, bg: '#e9f1f9', color: '#3b82c4' }, // 家賃・光熱費・スマホ代など
-  その他: { Icon: Package, bg: '#f0f1ef', color: '#77837c' },
+  食費: { Icon: ShoppingBasket, ...SOFT },
+  日用品: { Icon: Milk, ...WARM },
+  外食: { Icon: Utensils, ...SOFT },
+  衣類: { Icon: Shirt, ...SOFT },
+  趣味: { Icon: BookOpen, ...SOFT },
+  固定費: { Icon: Landmark, ...WARM }, // 家賃・光熱費・スマホ代など
+  その他: { Icon: Package, ...SOFT },
 }
 const CATEGORIES = Object.keys(CATEGORY_STYLE)
 
@@ -103,20 +107,25 @@ const emptyForm = () => ({
 // budget は「予算 − これからの予定」の使えるお金。hasBudget が false なら予算の話はしない。
 function mascotMessage({ cur, prev, isCurrent, hasBudget, budget, total, daysLeft }) {
   const when = isCurrent ? '先月の同じ日まで' : '先月'
+  // lead: 小さく出す前置き、main: 大きく出すひとこと、sub: 下に小さく出す補足
   let mood = 'normal'
+  let lead = ''
   let main
   if (cur === 0 && prev === 0) {
     main = '買い物を記録すると、先月とくらべて教えるね!'
   } else if (prev === 0) {
-    main = '先月の記録がないから、ここからくらべていこうね!'
+    main = 'ここから先月とくらべていこうね!'
   } else if (prev > cur) {
     mood = 'happy'
-    main = `${when}より ${yen(prev - cur)} 節約できてるよ!すごい!`
+    lead = `${when}より`
+    main = `${yen(prev - cur)} 節約できてるよ!\nすごい!`
   } else if (prev === cur) {
-    main = `${when}とぴったり同じくらいだよ。`
+    lead = `${when}と`
+    main = 'ぴったり同じくらいだよ。'
   } else {
     mood = 'worried'
-    main = `${when}より ${yen(cur - prev)} 多く使ってるよ。ちょっとだけ気をつけよう!`
+    lead = `${when}より`
+    main = `${yen(cur - prev)} 多く使ってるよ。`
   }
 
   let sub = ''
@@ -125,13 +134,12 @@ function mascotMessage({ cur, prev, isCurrent, hasBudget, budget, total, daysLef
       mood = 'worried'
       sub = `使えるお金を ${yen(total - budget)} オーバーしちゃった…`
     } else if (isCurrent && daysLeft > 0) {
-      const rest = budget - total
-      sub = `使えるお金はあと ${yen(rest)}。1日 ${yen(Math.floor(rest / daysLeft))} くらいまで使えるよ。`
+      sub = `1日 ${yen(Math.floor((budget - total) / daysLeft))} くらいまで使えるよ。`
     } else {
-      sub = `予算の中におさまったね!`
+      sub = '予算の中におさまったね!'
     }
   }
-  return { mood, main, sub }
+  return { mood, lead, main, sub }
 }
 
 function loadItems() {
@@ -592,19 +600,27 @@ export default function App() {
       {tab === 'home' && (
         <>
           <header className="page-header">
-            <div>
-              <div className="page-date">{now.getMonth() + 1}月{now.getDate()}日({WEEK[now.getDay()]})</div>
-              <h1>ホーム</h1>
-            </div>
+            <h1>おかいもの日記</h1>
             <button className="icon-btn settings-btn" onClick={() => setTab('settings')} aria-label="設定">
-              <SettingsIcon size={20} strokeWidth={1.8} />
+              <SettingsIcon size={22} strokeWidth={1.7} />
             </button>
           </header>
 
           <main className="content">
-            <section className="card month-card">
+            {/* 犬のキャラクターが先月との比較を教えてくれる */}
+            <section className="hero">
+              <div className="hero-text">
+                <div className="page-date">{now.getMonth() + 1}月{now.getDate()}日({WEEK[now.getDay()]})</div>
+                {talk.lead && <p className="hero-lead">{talk.lead}</p>}
+                <p className="hero-main">{talk.main}</p>
+                {talk.sub && <p className="hero-sub">{talk.sub}</p>}
+              </div>
+              <Dog mood={talk.mood} size={112} />
+            </section>
+
+            <section className="month-card flat">
               <div className="card-head">
-                <h2>今月の買い物</h2>
+                <h2>今月のお買い物</h2>
                 <MonthSelect month={month} onChange={setMonth} />
               </div>
               <div className="month-body">
@@ -612,30 +628,27 @@ export default function App() {
                   <span className="yen-mark">¥</span>
                   {total.toLocaleString('ja-JP')}
                 </div>
-                <div className="divider" />
                 {/* 押すと、同じ月の買い物履歴を開く */}
                 <button className="month-count" onClick={() => setTab('history')} aria-label="買い物履歴を見る">
-                  <span className="count-label">記録した買い物</span>
                   <span className="count-value">
                     <span className="count-num num">{monthItems.length}</span> 件
-                    <ChevronRight size={14} />
                   </span>
+                  <span className="count-label">記録した買い物</span>
                 </button>
               </div>
 
               {budget > 0 ? (
                 <div className={`budget level-${budgetLevel}`}>
                   <div className="budget-row">
-                    <span>
+                    <span className="budget-rest">
                       {budgetLevel === 'over' ? (
-                        <>オーバー <strong className="num">{yen(total + upcomingTotal - budget)}</strong></>
+                        <>オーバー <span className="num">{yen(total + upcomingTotal - budget)}</span></>
                       ) : (
-                        <>のこり <strong className="num">{yen(budget - total - upcomingTotal)}</strong></>
+                        <>のこり <span className="num">{yen(budget - total - upcomingTotal)}</span></>
                       )}
                     </span>
-                    <button className="link-btn" onClick={() => setBudgetInput(String(budget))}>
+                    <button className="link-btn budget-edit" onClick={() => setBudgetInput(String(budget))}>
                       予算 {yen(budget)}
-                      <PencilLine size={12} />
                     </button>
                   </div>
                   {/* 濃い色が使った金額、うすい色がこれからの予定 */}
@@ -649,7 +662,12 @@ export default function App() {
                   {(upcomingTotal > 0 || unknownCount > 0) && (
                     <button className="budget-calc" onClick={() => setTab('calendar')}>
                       使った {yen(total)} + これからの予定 {yen(upcomingTotal)}
-                      {unknownCount > 0 && `(ほかに金額未定 ${unknownCount}件)`}
+                      {unknownCount > 0 && (
+                        <>
+                          <br />
+                          ほかに金額未定 {unknownCount}件
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
@@ -659,26 +677,22 @@ export default function App() {
                   月の予算を決める
                 </button>
               )}
+              {(catNotice || planNotice) && (
+                <div className="notices">
+                  {catNotice && <p>{catNotice}</p>}
+                  {planNotice && <p>{planNotice}</p>}
+                </div>
+              )}
             </section>
 
             <button className="btn-receipt" onClick={() => openNew()}>
-              <PencilLine size={20} strokeWidth={1.8} />
+              <Plus size={20} strokeWidth={2} />
               買い物を記録する
             </button>
 
-            <section className="mascot">
-              <Mascot mood={talk.mood} />
-              <div className="bubble">
-                <p>{talk.main}</p>
-                {talk.sub && <p className="bubble-sub">{talk.sub}</p>}
-                {catNotice && <p className="bubble-sub bubble-over">{catNotice}</p>}
-                {planNotice && <p className="bubble-sub bubble-notice" style={{ color: settings.planColor }}>{planNotice}</p>}
-              </div>
-            </section>
-
             <section>
               <div className="section-head">
-                <h2>最近の買い物</h2>
+                <h2>最近のお買い物</h2>
                 <button className="link-btn" onClick={() => setTab('history')}>
                   すべて見る
                   <ChevronRight size={13} />
@@ -702,14 +716,13 @@ export default function App() {
             <h1>買い物履歴</h1>
             <MonthSelect month={month} onChange={setMonth} />
           </header>
-          <main className="content">
-            <section className="card month-card">
+          <main className="content page-history">
+            <section className="total-card">
               <h2>この月の合計</h2>
-              <div className="month-total num">
-                <span className="yen-mark">¥</span>
-                {total.toLocaleString('ja-JP')}
+              <div className="total-row">
+                <div className="month-total num">{yen(total)}</div>
+                <div className="count-label">{monthItems.length} 件の買い物</div>
               </div>
-              <div className="count-label">{monthItems.length} 件の買い物</div>
             </section>
             {groups.length === 0 && <p className="empty card">この月の記録はありません。</p>}
             {groups.map(([date, list]) => (
@@ -737,7 +750,7 @@ export default function App() {
             <h1>カレンダー</h1>
             <MonthSelect month={month} onChange={setMonth} />
           </header>
-          <main className="content">
+          <main className="content page-calendar">
             <section className="card calendar">
               <div className="cal-head">
                 <button className="icon-btn" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="前の月">
@@ -905,11 +918,11 @@ export default function App() {
                 {' ・ 棒をタップで詳しく'}
               </p>
             </section>
-            <section className="card">
+            <section className="card cat-card">
               <div className="card-head">
                 <h2 className="card-title">カテゴリ別</h2>
                 <button className="link-btn" onClick={() => setCatBudgetForm({ ...catBudgets })}>
-                  <Target size={13} />
+                  <PencilLine size={13} />
                   カテゴリの予算
                 </button>
               </div>
@@ -960,6 +973,8 @@ export default function App() {
           onEditCatBudgets={() => setCatBudgetForm({ ...catBudgets })}
           plans={plans}
           onEditPlan={openPlanEdit}
+          // 固定費は毎月くり返す予定として、カテゴリ「固定費」で追加する
+          onAddFixed={() => setPlanForm({ ...emptyPlan(today()), repeat: true, category: '固定費' })}
           onBack={() => setTab('home')}
         />
       )}

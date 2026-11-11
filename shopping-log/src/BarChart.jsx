@@ -25,8 +25,8 @@ export default function BarChart({
   onSelect,
   amountBelow = false,
   height = DEFAULT_H,
-  defaultColor = '#a9c7b6',
-  strongColor = '#3f7961',
+  defaultColor = '#dcb69c',
+  strongColor = '#b94a38',
 }) {
   const CHART_H = height
   const max = Math.max(1, ...bars.map((b) => b.value), guide?.value || 0, ...bars.map((b) => b.limit || 0)) * 1.08
@@ -69,7 +69,7 @@ export default function BarChart({
                   </span>
                 )}
                 <span
-                  className="bar"
+                  className="chart-bar"
                   style={{
                     height: b.value > 0 ? Math.max(3, h) : 0,
                     background: b.color || (b.strong || selected ? strongColor : defaultColor),
