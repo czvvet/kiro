@@ -1,4 +1,6 @@
-import { ChevronLeft, ChevronRight, PencilLine, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Check, ChevronLeft, ChevronRight, PencilLine, Plus, Smartphone } from 'lucide-react'
+import { canPrompt, isIOS, isStandalone, onInstallChange, promptInstall } from './install.js'
 import { COLOR_CHOICES, DEFAULT_SETTINGS, MARK_STYLES, hasAmount } from './plans.js'
 import { PlanMark } from './PlanParts.jsx'
 
@@ -21,6 +23,87 @@ function ColorPicker({ label, value, onChange }) {
         ))}
       </div>
     </div>
+  )
+}
+
+// ホーム画面に追加
+//   Android の Chrome など: ボタンでブラウザの「追加しますか?」を出す
+//   iPhone の Safari など: 自動では出せないので、手順を表示する
+function InstallSection() {
+  const [, rerender] = useState(0)
+  const [showHelp, setShowHelp] = useState(false)
+  const [added, setAdded] = useState(false)
+  useEffect(() => onInstallChange(() => rerender((n) => n + 1)), [])
+
+  if (isStandalone() || added) {
+    return (
+      <section className="card settings-card">
+        <h2 className="card-title">ホーム画面に追加</h2>
+        <p className="install-done">
+          <Check size={16} strokeWidth={2.4} />
+          ホーム画面に追加されています
+        </p>
+      </section>
+    )
+  }
+
+  const ios = isIOS()
+  // パソコン(タッチ操作がメインでない端末)
+  const pc = !ios && !/Android|Mobile/i.test(navigator.userAgent)
+  // https か localhost でないと、ブラウザはアプリとして追加させてくれない
+  const secure = window.isSecureContext
+  const onClick = async () => {
+    if (canPrompt()) {
+      if (await promptInstall()) setAdded(true)
+    } else {
+      setShowHelp((v) => !v)
+    }
+  }
+
+  return (
+    <section className="card settings-card">
+      <h2 className="card-title">ホーム画面に追加</h2>
+      <p className="setting-note install-note">ホーム画面にアイコンを置くと、アプリのようにすぐ開けます。</p>
+      <button className="add-fixed-btn install-btn" onClick={onClick} aria-expanded={canPrompt() ? undefined : showHelp}>
+        <Smartphone size={16} strokeWidth={2} />
+        ホーム画面に追加する
+      </button>
+      {showHelp && !canPrompt() && (
+        <ol className="install-steps">
+          {ios ? (
+            <>
+              <li>Safari の下(または上)にある<strong>共有ボタン</strong>(四角から矢印が出ているマーク)を押す</li>
+              <li>メニューの中の<strong>「ホーム画面に追加」</strong>を押す</li>
+              <li>右上の<strong>「追加」</strong>を押す</li>
+            </>
+          ) : pc ? (
+            <>
+              <li>
+                アドレスバーの右にある<strong>インストールのマーク</strong>(画面に矢印のアイコン)を押す。
+                なければ、右上の<strong>メニュー</strong>(Edge は「…」、Chrome は「︙」)を開く
+              </li>
+              <li>
+                Edge は<strong>「アプリ」→「このサイトをアプリとしてインストール」</strong>、
+                Chrome は<strong>「キャスト、保存、共有」→「ページをアプリとしてインストール」</strong>を押す
+              </li>
+              <li><strong>「インストール」</strong>を押す</li>
+              {!secure && (
+                <li className="install-warn">
+                  今のアドレス({location.host})では追加できません。
+                  このパソコンでは <strong>http://localhost:5173/</strong> で開いてからやってみてください
+                </li>
+              )}
+            </>
+          ) : (
+            <>
+              <li>ブラウザの右上の<strong>メニュー</strong>(︙)を押す</li>
+              <li><strong>「ホーム画面に追加」</strong>または<strong>「アプリをインストール」</strong>を押す</li>
+              <li>出てきた画面で<strong>「追加」</strong>(「インストール」)を押す</li>
+            </>
+          )}
+        </ol>
+      )}
+    </section>
   )
 }
 
@@ -141,6 +224,8 @@ export default function SettingsPage({
             固定費を追加
           </button>
         </section>
+
+        <InstallSection />
       </main>
     </>
   )

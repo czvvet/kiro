@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   CalendarDays,
   CalendarPlus,
@@ -19,11 +19,13 @@ import {
   Target,
   Utensils,
 } from 'lucide-react'
-import { Settings as SettingsIcon } from 'lucide-react'
-import Dog from './Dog.jsx'
+import { Search, Settings as SettingsIcon, X } from 'lucide-react'
+import Dog, { EmptyState } from './Dog.jsx'
 import Splash from './Splash.jsx'
 import BarChart, { shortYen } from './BarChart.jsx'
+import { DateField, SelectField, TimeField } from './Pickers.jsx'
 import { PlanMark, PlanRow } from './PlanParts.jsx'
+import ConfirmDialog from './ConfirmDialog.jsx'
 import SettingsPage from './SettingsPage.jsx'
 import {
   PLANS_KEY,
@@ -42,6 +44,8 @@ const newId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 const STORAGE_KEY = 'shopping-log-items'
 const BUDGET_KEY = 'shopping-log-budget'
 const CAT_BUDGET_KEY = 'shopping-log-cat-budgets'
+const REVIEW_CLOSED_KEY = 'shopping-log-review-closed' // とじた「先月のふりかえり」の月 "YYYY-MM"
+const REVIEW_DAYS = 5 // 月のはじめの何日まで、ふりかえりを出すか
 
 function loadCatBudgets() {
   try {
@@ -111,35 +115,58 @@ function mascotMessage({ cur, prev, isCurrent, hasBudget, budget, total, daysLef
   let mood = 'normal'
   let lead = ''
   let main
+  // 「|」は改行してもよい区切り(言葉の途中では改行しない)。「\n」は必ず改行する
   if (cur === 0 && prev === 0) {
-    main = '買い物を記録すると、先月とくらべて教えるね!'
+    main = '買い物を記録すると、|先月とくらべて|教えるね!'
   } else if (prev === 0) {
-    main = 'ここから先月とくらべていこうね!'
+    main = 'ここから|先月とくらべて|いこうね!'
   } else if (prev > cur) {
     mood = 'happy'
     lead = `${when}より`
-    main = `${yen(prev - cur)} 節約できてるよ!\nすごい!`
+    main = `${yen(prev - cur)} |節約できてるよ!\nすごい!`
   } else if (prev === cur) {
     lead = `${when}と`
-    main = 'ぴったり同じくらいだよ。'
+    main = 'ぴったり|同じくらいだよ。'
   } else {
     mood = 'worried'
     lead = `${when}より`
-    main = `${yen(cur - prev)} 多く使ってるよ。`
+    main = `${yen(cur - prev)} |多く使ってるよ。`
   }
 
   let sub = ''
   if (hasBudget) {
     if (total > budget) {
       mood = 'worried'
-      sub = `使えるお金を ${yen(total - budget)} オーバーしちゃった…`
+      sub = `使えるお金を |${yen(total - budget)} |オーバーしちゃった…`
     } else if (isCurrent && daysLeft > 0) {
-      sub = `1日 ${yen(Math.floor((budget - total) / daysLeft))} くらいまで使えるよ。`
+      sub = `1日 ${yen(Math.floor((budget - total) / daysLeft))} くらいまで|使えるよ。`
     } else {
-      sub = '予算の中におさまったね!'
+      sub = '予算の中に|おさまったね!'
     }
   }
   return { mood, lead, main, sub }
+}
+
+// 検索用に文字をそろえる(全角・半角、大文字・小文字、カタカナ・ひらがなの違いを気にせず探せるように)
+function normalizeText(s) {
+  return (s || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
+}
+
+// セリフを「|」の区切りごとのかたまりにして出す。かたまりの中では改行しないので、
+// 「先|月」のように言葉の途中で折り返さず、区切りのところで改行される
+function Phrases({ text }) {
+  return text.split('\n').map((line, i) => (
+    <span key={i}>
+      {i > 0 && <br />}
+      {line.split('|').map((part, j) => (
+        // かたまりの端の空白は消えてしまうので、消えない空白にしておく
+        <span key={j} className="phrase">{part.replace(/^ | $/g, '\u00a0')}</span>
+      ))}
+    </span>
+  ))
 }
 
 function loadItems() {
@@ -204,14 +231,82 @@ function ItemRow({ item, onClick }) {
   )
 }
 
+// 月を選ぶボタン。ブラウザ標準の月選択は見た目を変えられないので、
+// 押すとアプリのデザインに合わせた「年+12か月」の選択パネルを開く
 function MonthSelect({ month, onChange }) {
-  const [y, m] = month.split('-')
+  const [y, m] = month.split('-').map(Number)
+  const [panel, setPanel] = useState(null) // { year, top, right } 開いているときだけ入る
+
+  const open = (e) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    setPanel({ year: y, top: r.bottom + 8, right: Math.max(12, window.innerWidth - r.right) })
+  }
+  const pick = (mm) => {
+    onChange(`${panel.year}-${pad(mm)}`)
+    setPanel(null)
+  }
+  const now = new Date()
+  const thisMonth = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`
+
   return (
-    <label className="month-select">
-      <span>{y}年{Number(m)}月</span>
-      <ChevronDown size={13} />
-      <input type="month" value={month} onChange={(e) => e.target.value && onChange(e.target.value)} />
-    </label>
+    <>
+      <button type="button" className="month-select" onClick={open} aria-haspopup="dialog">
+        <span>{y}年{m}月</span>
+        <ChevronDown size={13} />
+      </button>
+
+      {panel && (
+        <div className="month-picker-overlay" onClick={() => setPanel(null)}>
+          <div
+            className="month-picker"
+            role="dialog"
+            aria-label="月をえらぶ"
+            style={{ top: panel.top, right: panel.right }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="month-picker-head">
+              <button type="button" className="icon-btn" onClick={() => setPanel({ ...panel, year: panel.year - 1 })} aria-label="前の年">
+                <ChevronLeft size={16} />
+              </button>
+              <span className="num">{panel.year}年</span>
+              <button type="button" className="icon-btn" onClick={() => setPanel({ ...panel, year: panel.year + 1 })} aria-label="次の年">
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <div className="month-picker-grid">
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((mm) => {
+                const key = `${panel.year}-${pad(mm)}`
+                return (
+                  <button
+                    type="button"
+                    key={mm}
+                    className={['month-cell', key === month && 'is-selected', key === thisMonth && 'is-now'].filter(Boolean).join(' ')}
+                    onClick={() => pick(mm)}
+                  >
+                    {mm}月
+                  </button>
+                )
+              })}
+            </div>
+            <div className="month-picker-foot">
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  onChange(thisMonth)
+                  setPanel(null)
+                }}
+              >
+                今月にもどる
+              </button>
+              <button type="button" className="link-btn sub" onClick={() => setPanel(null)}>
+                とじる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -243,6 +338,14 @@ export default function App() {
     localStorage.setItem(CAT_BUDGET_KEY, JSON.stringify(catBudgets))
   }, [catBudgets])
   const [pendingCheck, setPendingCheck] = useState(null) // 金額を入れたら買ったことにする予定
+  const [ask, setAsk] = useState(null) // 削除などの確認画面(null なら閉じている)
+  const [query, setQuery] = useState('') // 買い物履歴の検索ことば
+  const [reviewClosed, setReviewClosed] = useState(() => localStorage.getItem(REVIEW_CLOSED_KEY) || '')
+  const closeReview = (m) => {
+    localStorage.setItem(REVIEW_CLOSED_KEY, m)
+    setReviewClosed(m)
+  }
+  const closeAsk = useCallback(() => setAsk(null), [])
 
   useEffect(() => {
     localStorage.setItem(PLANS_KEY, JSON.stringify(plans))
@@ -279,11 +382,50 @@ export default function App() {
     return Object.entries(map).sort((a, b) => b[1] - a[1])
   }, [monthItems])
 
+  // 先月のふりかえり(月のはじめの数日だけ、ホームに出す。とじたらその月はもう出さない)
+  const review = useMemo(() => {
+    const t = today()
+    if (Number(t.slice(8, 10)) > REVIEW_DAYS) return null
+    const m = shiftMonth(t.slice(0, 7), -1)
+    if (reviewClosed === m) return null
+    const list = items.filter((i) => i.date.startsWith(m))
+    if (list.length === 0) return null
+    const sum = list.reduce((s, i) => s + itemTotal(i), 0)
+    const before = items.filter((i) => i.date.startsWith(shiftMonth(m, -1))).reduce((s, i) => s + itemTotal(i), 0)
+    const cats = {}
+    for (const i of list) cats[i.category] = (cats[i.category] || 0) + itemTotal(i)
+    const [topCat, topSum] = Object.entries(cats).sort((a, b) => b[1] - a[1])[0]
+    return {
+      month: m,
+      label: `${Number(m.slice(5))}月`,
+      sum,
+      diff: before > 0 ? sum - before : null, // 先々月の記録がなければくらべない
+      topCat,
+      topSum,
+      count: list.length,
+      days: new Set(list.map((i) => i.date)).size,
+    }
+  }, [items, reviewClosed])
+
+  // 買い物履歴の検索。入力があるときは、月に関係なくすべての記録から探す
+  const searching = query.trim() !== ''
+  const searchResults = useMemo(() => {
+    const words = normalizeText(query).split(/\s+/).filter(Boolean)
+    if (words.length === 0) return []
+    return items
+      .filter((i) => {
+        const text = normalizeText([i.name, i.store, i.category, i.memo].join(' '))
+        return words.every((w) => text.includes(w))
+      })
+      .sort((a, b) => sortKey(b).localeCompare(sortKey(a)))
+  }, [items, query])
+  const historyItems = searching ? searchResults : monthItems
+
   const groups = useMemo(() => {
     const map = {}
-    for (const i of monthItems) (map[i.date] ||= []).push(i)
+    for (const i of historyItems) (map[i.date] ||= []).push(i)
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]))
-  }, [monthItems])
+  }, [historyItems])
 
   // 週ごとの合計(月曜はじまり。月をまたぐ週は、その月の日だけで数える)
   const weeks = useMemo(() => {
@@ -417,9 +559,17 @@ export default function App() {
 
   const togglePlan = (plan, date) => {
     if (isDone(plan, date)) {
-      if (!confirm('完了を取り消すと、買い物履歴からこの記録も消えます。よろしいですか?')) return
-      setItems(items.filter((i) => i.id !== plan.done[date]))
-      markDone(plan.id, date, null)
+      const itemId = plan.done[date]
+      setAsk({
+        title: '完了を取り消しますか?',
+        message: '買い物履歴から、この記録も消えます。',
+        okLabel: '取り消す',
+        icon: 'undo',
+        onOk: () => {
+          setItems((list) => list.filter((i) => i.id !== itemId))
+          markDone(plan.id, date, null)
+        },
+      })
       return
     }
     if (hasAmount(plan)) {
@@ -474,12 +624,19 @@ export default function App() {
   }
 
   const deletePlan = () => {
-    const msg = planForm.repeat
-      ? 'この予定を削除しますか?(毎月の予定もすべて消えます。買い物履歴に入れた記録は残ります)'
-      : 'この予定を削除しますか?(買い物履歴に入れた記録は残ります)'
-    if (!confirm(msg)) return
-    setPlans(plans.filter((p) => p.id !== planForm.id))
-    setPlanForm(null)
+    const id = planForm.id
+    setAsk({
+      title: 'この予定を削除しますか?',
+      message: planForm.repeat
+        ? '毎月の予定もすべて消えます。買い物履歴に入れた記録は残ります。'
+        : '買い物履歴に入れた記録は残ります。',
+      okLabel: '削除する',
+      icon: 'trash',
+      onOk: () => {
+        setPlans((ps) => ps.filter((p) => p.id !== id))
+        setPlanForm(null)
+      },
+    })
   }
 
   const update = (key) => (e) => setForm({ ...form, [key]: e.target.value })
@@ -531,10 +688,16 @@ export default function App() {
   }
 
   const handleDelete = (id) => {
-    if (confirm('この記録を削除しますか?')) {
-      setItems(items.filter((i) => i.id !== id))
-      closeForm()
-    }
+    setAsk({
+      title: 'この記録を削除しますか?',
+      message: '削除した記録は元にもどせません。',
+      okLabel: '削除する',
+      icon: 'trash',
+      onOk: () => {
+        setItems((list) => list.filter((i) => i.id !== id))
+        closeForm()
+      },
+    })
   }
 
   const now = new Date()
@@ -600,7 +763,10 @@ export default function App() {
       {tab === 'home' && (
         <>
           <header className="page-header">
-            <h1>おかいもの日記</h1>
+            <div className="header-title">
+              <p className="header-eyebrow">おかいもの日記</p>
+              <h1>ホーム</h1>
+            </div>
             <button className="icon-btn settings-btn" onClick={() => setTab('settings')} aria-label="設定">
               <SettingsIcon size={22} strokeWidth={1.7} />
             </button>
@@ -611,12 +777,63 @@ export default function App() {
             <section className="hero">
               <div className="hero-text">
                 <div className="page-date">{now.getMonth() + 1}月{now.getDate()}日({WEEK[now.getDay()]})</div>
-                {talk.lead && <p className="hero-lead">{talk.lead}</p>}
-                <p className="hero-main">{talk.main}</p>
-                {talk.sub && <p className="hero-sub">{talk.sub}</p>}
+                {talk.lead && <p className="hero-lead"><Phrases text={talk.lead} /></p>}
+                <p className="hero-main"><Phrases text={talk.main} /></p>
+                {talk.sub && <p className="hero-sub"><Phrases text={talk.sub} /></p>}
               </div>
               <Dog mood={talk.mood} size={112} />
             </section>
+
+            {review && (
+              <section className="review-card" aria-label={`${review.label}のふりかえり`}>
+                <div className="review-head">
+                  <span className="review-eyebrow">先月のふりかえり</span>
+                  <button className="review-close" onClick={() => closeReview(review.month)} aria-label="ふりかえりをとじる">
+                    <X size={15} strokeWidth={2.4} />
+                  </button>
+                </div>
+                <p className="review-title">
+                  <span className="phrase">{review.label}は</span>
+                  <span className="phrase"><strong className="num">{yen(review.sum)}</strong> 使ったよ</span>
+                </p>
+                {review.diff !== null && (
+                  <p className={`review-diff ${review.diff <= 0 ? 'is-good' : 'is-more'}`}>
+                    {review.diff === 0
+                      ? 'その前の月とぴったり同じ'
+                      : `その前の月より ${yen(Math.abs(review.diff))} ${review.diff < 0 ? '少なかった!' : '多かった'}`}
+                  </p>
+                )}
+                <ul className="review-rows">
+                  <li>
+                    <CategoryIcon category={review.topCat} />
+                    <span className="review-row-text">
+                      <span className="review-row-label">いちばん多かったのは</span>
+                      {review.topCat}
+                    </span>
+                    <span className="num">{yen(review.topSum)}</span>
+                  </li>
+                  <li className="review-mini">
+                    <span>記録した日 <strong className="num">{review.days}</strong>日</span>
+                    <span>買い物 <strong className="num">{review.count}</strong>件</span>
+                    {budget > 0 && (
+                      <span className={review.sum <= budget ? 'is-good' : 'is-more'}>
+                        {review.sum <= budget ? '予算の中におさまった!' : `予算を ${yen(review.sum - budget)} オーバー`}
+                      </span>
+                    )}
+                  </li>
+                </ul>
+                <button
+                  className="link-btn review-more"
+                  onClick={() => {
+                    setMonth(review.month)
+                    setTab('review')
+                  }}
+                >
+                  くわしく見る
+                  <ChevronRight size={15} />
+                </button>
+              </section>
+            )}
 
             <section className="month-card flat">
               <div className="card-head">
@@ -699,7 +916,7 @@ export default function App() {
                 </button>
               </div>
               {recent.length === 0 ? (
-                <p className="empty card">まだ記録がありません。<br />上のボタンから記録してみましょう。</p>
+                <EmptyState title="まだ記録がないみたい">上のボタンから、買い物を記録してみよう</EmptyState>
               ) : (
                 <ul className="card list">
                   {recent.map((item) => <ItemRow key={item.id} item={item} onClick={openEdit} />)}
@@ -713,22 +930,50 @@ export default function App() {
       {tab === 'history' && (
         <>
           <header className="page-header">
-            <h1>買い物履歴</h1>
+            <div className="header-title">
+              <p className="header-eyebrow">おかいもの日記</p>
+              <h1>買い物履歴</h1>
+            </div>
             <MonthSelect month={month} onChange={setMonth} />
           </header>
           <main className="content page-history">
+            <div className="search-box">
+              <Search size={17} />
+              <input
+                type="search"
+                enterKeyHint="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="品名・お店・メモでさがす"
+                aria-label="買い物をさがす"
+              />
+              {searching && (
+                <button type="button" className="search-clear" onClick={() => setQuery('')} aria-label="検索をやめる">
+                  <X size={15} strokeWidth={2.4} />
+                </button>
+              )}
+            </div>
             <section className="total-card">
-              <h2>この月の合計</h2>
+              <h2>{searching ? 'さがした結果(すべての月)' : 'この月の合計'}</h2>
               <div className="total-row">
-                <div className="month-total num">{yen(total)}</div>
-                <div className="count-label">{monthItems.length} 件の買い物</div>
+                <div className="month-total num">{yen(historyItems.reduce((s, i) => s + itemTotal(i), 0))}</div>
+                <div className="count-label">{historyItems.length} 件の買い物</div>
               </div>
             </section>
-            {groups.length === 0 && <p className="empty card">この月の記録はありません。</p>}
+            {groups.length === 0 &&
+              (searching ? (
+                <EmptyState size="large" title="見つからなかったみたい">ほかのことばでさがしてみてね</EmptyState>
+              ) : (
+                <EmptyState size="large" title="この月はまだお買い物してないみたい">＋ボタンから記録できるよ</EmptyState>
+              ))}
             {groups.map(([date, list]) => (
               <section key={date}>
                 <div className="day-head">
-                  <span>{formatDay(date)}</span>
+                  {/* 検索のときは月をまたぐので、今年以外は年も出す */}
+                  <span>
+                    {searching && !date.startsWith(today().slice(0, 4)) && `${date.slice(0, 4)}年`}
+                    {formatDay(date)}
+                  </span>
                   <span className="num">{yen(list.reduce((s, i) => s + itemTotal(i), 0))}</span>
                 </div>
                 <ul className="card list">
@@ -747,7 +992,10 @@ export default function App() {
       {tab === 'calendar' && (
         <>
           <header className="page-header">
-            <h1>カレンダー</h1>
+            <div className="header-title">
+              <p className="header-eyebrow">おかいもの日記</p>
+              <h1>カレンダー</h1>
+            </div>
             <MonthSelect month={month} onChange={setMonth} />
           </header>
           <main className="content page-calendar">
@@ -757,7 +1005,7 @@ export default function App() {
                   <ChevronLeft size={18} />
                 </button>
                 <div className="cal-title">
-                  <span>この月の合計</span>
+                  <span>{Number(month.slice(5))}月の合計</span>
                   <span className="num">{yen(total)}</span>
                 </div>
                 <button className="icon-btn" onClick={() => setMonth(shiftMonth(month, 1))} aria-label="次の月">
@@ -839,7 +1087,7 @@ export default function App() {
                   </ul>
                 )}
                 {dayItems.length === 0 && dayEntries.length === 0 && (
-                  <p className="empty card">この日の記録や予定はありません。</p>
+                  <EmptyState size="small" title="この日の記録や予定はありません" />
                 )}
                 <div className="day-actions">
                   <button className="link-btn" onClick={() => openNew(selectedDay)}>
@@ -860,7 +1108,10 @@ export default function App() {
       {tab === 'review' && (
         <>
           <header className="page-header">
-            <h1>記録</h1>
+            <div className="header-title">
+              <p className="header-eyebrow">おかいもの日記</p>
+              <h1>記録</h1>
+            </div>
             <MonthSelect month={month} onChange={setMonth} />
           </header>
           <main className="content">
@@ -983,14 +1234,29 @@ export default function App() {
         {[
           ['home', 'ホーム', House],
           ['history', '買い物履歴', ReceiptText],
+          ['add'],
           ['calendar', 'カレンダー', CalendarDays],
           ['review', '記録', ChartNoAxesColumnIncreasing],
-        ].map(([key, label, Icon]) => (
-          <button key={key} className={`tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>
-            <span className="tab-icon"><Icon size={21} strokeWidth={1.8} /></span>
-            {label}
-          </button>
-        ))}
+        ].map(([key, label, Icon]) =>
+          key === 'add' ? (
+            // どの画面からでも買い物を記録できる、真ん中の丸いボタン。
+            // カレンダーでは、選んでいる日付で記録を始める
+            <div key="add" className="tab-add-slot">
+              <button
+                className="tab-add"
+                onClick={() => openNew(tab === 'calendar' ? selectedDay : null)}
+                aria-label="買い物を記録する"
+              >
+                <Plus size={22} strokeWidth={2.6} />
+              </button>
+            </div>
+          ) : (
+            <button key={key} className={`tab ${tab === key ? 'active' : ''}`} onClick={() => setTab(key)}>
+              <span className="tab-icon"><Icon size={21} strokeWidth={1.8} /></span>
+              {label}
+            </button>
+          ),
+        )}
       </nav>
 
       {showForm && (
@@ -1017,9 +1283,12 @@ export default function App() {
 
             <label>
               カテゴリ
-              <select value={form.category} onChange={update('category')}>
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
+              <SelectField
+                label="カテゴリをえらぶ"
+                value={form.category}
+                options={CATEGORIES}
+                onChange={(v) => setForm({ ...form, category: v })}
+              />
             </label>
 
             <label>
@@ -1030,11 +1299,11 @@ export default function App() {
             <div className="row">
               <label>
                 日付
-                <input type="date" value={form.date} onChange={update('date')} required />
+                <DateField label="日付をえらぶ" value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
               </label>
               <label className="time">
                 時刻
-                <input type="time" value={form.time} onChange={update('time')} />
+                <TimeField label="時刻をえらぶ" value={form.time} onChange={(v) => setForm({ ...form, time: v })} />
               </label>
             </div>
 
@@ -1092,7 +1361,7 @@ export default function App() {
               </label>
               <label>
                 日付
-                <input type="date" value={planForm.date} onChange={updatePlan('date')} required />
+                <DateField label="日付をえらぶ" value={planForm.date} onChange={(v) => setPlanForm({ ...planForm, date: v })} />
               </label>
             </div>
 
@@ -1114,9 +1383,12 @@ export default function App() {
 
             <label>
               カテゴリ
-              <select value={planForm.category || 'その他'} onChange={updatePlan('category')}>
-                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-              </select>
+              <SelectField
+                label="カテゴリをえらぶ"
+                value={planForm.category || 'その他'}
+                options={CATEGORIES}
+                onChange={(v) => setPlanForm({ ...planForm, category: v })}
+              />
             </label>
 
             <label>
@@ -1199,7 +1471,7 @@ export default function App() {
             <h2>月の予算</h2>
             <p className="sheet-note">
               1か月に使う金額の目安を決めましょう。毎月この金額で計算します。
-              引き落とし予定の分は、この予算から自動で引かれます。
+              金額が決まっている予定の分も、「のこり」の計算に入ります。
             </p>
             <label>
               予算(円)
@@ -1233,6 +1505,8 @@ export default function App() {
           </form>
         </div>
       )}
+
+      <ConfirmDialog ask={ask} onClose={closeAsk} />
     </div>
   )
 }

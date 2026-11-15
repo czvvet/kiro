@@ -164,13 +164,107 @@ p {
   font-size: 13px;
 }
 
-/* 透明な月選択を重ねて、タップで月を選べるようにする */
-.month-select input {
-  position: absolute;
+button.month-select {
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* 月をえらぶパネル(ボタンの下に出る) */
+.month-picker-overlay {
+  position: fixed;
   inset: 0;
-  width: 100%;
-  opacity: 0;
+  z-index: 40;
+  background: rgba(70, 45, 32, 0.12);
+}
+
+.month-picker {
+  position: fixed;
+  width: 272px;
+  padding: 14px 14px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--bg);
+  box-shadow: 0 10px 30px rgba(70, 45, 32, 0.18);
+  animation: picker-in 0.16s ease-out;
+}
+
+@keyframes picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.month-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.month-picker-head .num {
   font-size: 16px;
+  color: #4a3a33;
+}
+
+.month-picker-head .icon-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #fffaf6;
+  color: #6e5a50;
+}
+
+.month-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.month-cell {
+  height: 40px;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  background: #fffaf6;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.month-cell.is-now {
+  border-color: #e6bdb3;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.month-cell.is-selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.month-cell:active {
+  transform: scale(0.96);
+}
+
+.month-picker-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 8px 4px 0;
+  border-top: 1px dashed var(--border);
+}
+
+.month-picker-foot .link-btn {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.month-picker-foot .link-btn.sub {
+  color: var(--sub);
 }
 
 .month-body {
@@ -398,6 +492,22 @@ p {
 
 .mascot-svg.mood-happy {
   animation: hop 1.6s ease-in-out infinite;
+}
+
+/* 犬の場所(大きさは「ふつうの顔」と同じ)。画像はその下・まんなかを基準に置く */
+span.mascot-svg {
+  position: relative;
+  display: block;
+}
+
+.mascot-img {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  display: block;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
 }
 
 @keyframes hop {
@@ -2036,4 +2146,1316 @@ p {
 
 .add-fixed-btn:active {
   background: var(--soft);
+}
+
+/* ================================================================
+   ヘッダー: ベージュの帯に、小さな見出し・こげ茶のタイトル・赤い下線
+   ================================================================ */
+.page-header {
+  position: relative;
+  align-items: center;
+  min-height: 0;
+  margin-bottom: 18px;
+  padding: calc(28px + env(safe-area-inset-top)) 22px 18px;
+  background: #efe5d3;
+  border-bottom: 1px solid var(--border);
+}
+
+/* タイトルの下の短い赤い線(帯の下端に重ねる) */
+.page-header::after {
+  content: '';
+  position: absolute;
+  left: 22px;
+  bottom: -1.5px;
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.header-eyebrow {
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #8a5a44;
+}
+
+.page-header h1 {
+  font-size: 25px;
+  color: #6b3a2c;
+}
+
+/* 右側の設定ボタンと月の選択は、白っぽい角丸の箱に入れる */
+.page-header .settings-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+  color: #6e6052;
+}
+
+.page-header .month-select {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  color: var(--sub);
+}
+
+/* 帯の下は線があるので、すぐ下の区切り線は細めでよい */
+.page-history .total-card,
+.calendar {
+  border-top-color: var(--border);
+}
+
+/* ================================================================
+   イラスト付きヘッダー: アップロードされたヘッダー案をもとにしたデザイン
+   ================================================================ */
+.illustrated-header {
+  position: relative;
+  isolation: isolate;
+  min-height: 132px;
+  margin-bottom: 18px;
+  padding: calc(42px + env(safe-area-inset-top)) 22px 25px;
+  overflow: hidden;
+  border: none;
+  background: #f4e2d8;
+}
+
+.illustrated-header::after {
+  display: none;
+}
+
+.illustrated-header .header-title,
+.illustrated-header > .month-select,
+.illustrated-header > .settings-btn {
+  position: relative;
+  z-index: 3;
+}
+
+.illustrated-header .header-eyebrow {
+  margin-bottom: 6px;
+  color: #8a5a44;
+}
+
+.illustrated-header h1 {
+  color: #6b382b;
+  line-height: 1.15;
+}
+
+.illustrated-header > .month-select,
+.illustrated-header > .settings-btn {
+  align-self: flex-end;
+  margin-bottom: 1px;
+  background: rgba(255, 252, 247, 0.92);
+  box-shadow: 0 2px 8px rgba(106, 63, 43, 0.04);
+}
+
+.header-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 波打つクリーム色の下端 */
+.header-decor::after {
+  content: '';
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  bottom: -25px;
+  height: 43px;
+  border-radius: 48% 52% 0 0 / 65% 65% 0 0;
+  background: var(--bg);
+  transform: rotate(-0.8deg);
+}
+
+.header-hill,
+.header-cloud {
+  position: absolute;
+  display: block;
+}
+
+.header-hill {
+  bottom: 4px;
+  border-radius: 50% 50% 0 0;
+  background: rgba(222, 181, 159, 0.34);
+}
+
+.hill-one {
+  left: -18px;
+  width: 125px;
+  height: 29px;
+  transform: rotate(5deg);
+}
+
+.hill-two {
+  right: 58px;
+  width: 150px;
+  height: 34px;
+  transform: rotate(-4deg);
+}
+
+.header-cloud {
+  width: 38px;
+  height: 15px;
+  border-radius: 50px;
+  background: rgba(255, 252, 247, 0.9);
+}
+
+.header-cloud::before,
+.header-cloud::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  border-radius: 50%;
+  background: inherit;
+}
+
+.header-cloud::before {
+  left: 5px;
+  width: 18px;
+  height: 20px;
+}
+
+.header-cloud::after {
+  right: 4px;
+  width: 22px;
+  height: 25px;
+}
+
+.cloud-one {
+  right: 16px;
+  top: 18px;
+}
+
+.cloud-two {
+  right: 96px;
+  bottom: 20px;
+  transform: scale(0.65);
+  opacity: 0.75;
+}
+
+/* ホームと記録に付ける細いリボン */
+.header-ribbon {
+  position: absolute;
+  right: 62px;
+  bottom: 29px;
+  width: 78px;
+  height: 5px;
+  border-radius: 50%;
+  background: #df958f;
+  transform: rotate(-20deg);
+}
+
+.header-ribbon::before,
+.header-ribbon::after {
+  content: '';
+  position: absolute;
+  border: 3px solid #df958f;
+  border-radius: 50%;
+}
+
+.header-ribbon::before {
+  left: 10px;
+  top: -10px;
+  width: 17px;
+  height: 11px;
+  transform: rotate(28deg);
+}
+
+.header-ribbon::after {
+  left: 24px;
+  top: -11px;
+  width: 17px;
+  height: 11px;
+  transform: rotate(-28deg);
+}
+
+.header-ribbon i::before,
+.header-ribbon i::after {
+  content: '';
+  position: absolute;
+  left: 26px;
+  top: -2px;
+  width: 26px;
+  height: 4px;
+  border-radius: 4px;
+  background: #df958f;
+  transform-origin: left center;
+}
+
+.header-ribbon i::before {
+  transform: rotate(43deg);
+}
+
+.header-ribbon i::after {
+  transform: rotate(-38deg);
+}
+
+/* 履歴には、遠景の家並みを薄く表示 */
+.header-town {
+  position: absolute;
+  right: 10px;
+  bottom: 15px;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  opacity: 0.35;
+}
+
+.header-town i {
+  display: block;
+  width: 20px;
+  height: 31px;
+  background: #fffaf5;
+  clip-path: polygon(0 27%, 50% 0, 100% 27%, 100% 100%, 0 100%);
+}
+
+.header-town i:nth-child(2) {
+  width: 27px;
+  height: 45px;
+}
+
+.header-town i:nth-child(3) {
+  width: 23px;
+  height: 35px;
+}
+
+.header-town i:nth-child(4) {
+  width: 31px;
+  height: 51px;
+}
+
+/* カレンダーには犬を小さく置く */
+.header-dog {
+  position: absolute;
+  right: 22px;
+  bottom: 4px;
+  z-index: 2;
+  filter: drop-shadow(0 2px 1px rgba(80, 50, 34, 0.08));
+}
+
+.header-calendar > .month-select {
+  margin-right: 70px;
+}
+
+/* 画面ごとに背景の明るさを少し変え、同じテーマの中で区別する */
+.header-history {
+  background: #f2ded4;
+}
+
+.header-calendar {
+  background: #f6e6df;
+}
+
+.header-review {
+  background: #f1ddd4;
+}
+
+@media (max-width: 360px) {
+  .illustrated-header {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .illustrated-header h1 {
+    font-size: 22px;
+  }
+
+  .header-calendar > .month-select {
+    margin-right: 58px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+/* ================================================================
+   ヘッダー(新デザイン): うすいピンクベージュの帯、字間の広いタイトル、
+   タイトル下の短い赤線、下端はゆるい波線
+   ================================================================ */
+.page-header {
+  margin-bottom: 22px;
+  padding: calc(34px + env(safe-area-inset-top)) 24px 28px;
+  border-bottom: none;
+  background: #f3e4dc;
+}
+
+/* 下端の波線(背景色で波の形に切り抜く) */
+.page-header::after {
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  width: auto;
+  height: 12px;
+  border-radius: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='12' viewBox='0 0 120 12'%3E%3Cpath d='M0 7 C20 1 40 1 60 6 S100 12 120 6 V12 H0Z' fill='%23faf6ef'/%3E%3C/svg%3E") repeat-x;
+  background-size: 120px 12px;
+}
+
+.header-eyebrow {
+  margin-bottom: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  color: #6e5a50;
+}
+
+.page-header h1 {
+  font-size: 26px;
+  letter-spacing: 4px;
+  color: #4a3a33;
+}
+
+/* タイトルの下の短い赤い線 */
+.page-header .header-title h1::after {
+  content: '';
+  display: block;
+  width: 30px;
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.page-header .settings-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #fffaf6;
+  box-shadow: 0 2px 6px rgba(110, 70, 50, 0.08);
+  color: #6e6052;
+}
+
+.page-header .month-select {
+  border-radius: 12px;
+  background: #fffaf6;
+  box-shadow: 0 2px 6px rgba(110, 70, 50, 0.08);
+}
+
+/* ヘッダーの高さを詰める(上下の余白と、文字のあいだを小さくする) */
+.page-header {
+  margin-bottom: 14px;
+  padding: calc(18px + env(safe-area-inset-top)) 24px 20px;
+}
+
+.header-eyebrow {
+  margin-bottom: 4px;
+}
+
+.page-header h1 {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.page-header .header-title h1::after {
+  margin-top: 7px;
+}
+
+.page-header .settings-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+.page-header .month-select {
+  padding: 8px 14px;
+}
+
+/* ================================================================
+   入力画面(記録・予定・月の予算・カテゴリの予算)をアプリの雰囲気にそろえる
+   クリーム色の背景、ヘッダーと同じ見出し(小さな「おかいもの日記」と赤い線)、
+   ベージュの入力欄、やわらかいボタン
+   ================================================================ */
+.overlay {
+  background: rgba(70, 45, 32, 0.38);
+}
+
+.sheet {
+  padding: 10px 24px calc(22px + env(safe-area-inset-bottom));
+  border-radius: 26px 26px 0 0;
+  background: var(--bg);
+  box-shadow: 0 -6px 24px rgba(70, 45, 32, 0.12);
+}
+
+.handle {
+  width: 40px;
+  height: 4px;
+  margin-bottom: 18px;
+  background: #e2cfc4;
+}
+
+/* 見出し: ヘッダーと同じく、小さな「おかいもの日記」+ 字間の広いタイトル + 赤い線 */
+.sheet h2 {
+  margin-bottom: 20px;
+  font-family: 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #4a3a33;
+}
+
+.sheet h2::before {
+  content: 'おかいもの日記';
+  display: block;
+  margin-bottom: 4px;
+  font-family: 'Noto Sans JP', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  color: #8a7468;
+}
+
+.sheet h2::after {
+  content: '';
+  display: block;
+  width: 26px;
+  height: 3px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.sheet-note {
+  margin: -6px 0 18px;
+  font-size: 11px;
+  color: var(--sub);
+}
+
+/* 項目名 */
+.sheet label {
+  margin-bottom: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6e5a50;
+}
+
+.required {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #f5e1da;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* 入力欄 */
+.sheet input,
+.sheet select,
+.sheet textarea {
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: #fffaf6;
+  font-weight: 400;
+  color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sheet input::placeholder,
+.sheet textarea::placeholder {
+  color: #b8aba0;
+}
+
+.sheet input:disabled {
+  background: var(--soft);
+  color: var(--sub);
+}
+
+.sheet textarea {
+  resize: none;
+}
+
+.sheet textarea:focus,
+.sheet input:focus,
+.sheet select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(185, 74, 56, 0.12);
+}
+
+/* 選択欄の矢印をアプリのアイコンに合わせる */
+.sheet select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  background: #fffaf6 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23857c72' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center;
+}
+
+/* チェック欄(金額未定・毎月くり返す)は、ひとまとまりの箱に入れる */
+.sheet .toggle {
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: #fffaf6;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sheet .toggle input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  border-radius: 6px;
+  box-shadow: none;
+  accent-color: var(--accent);
+}
+
+.sheet .toggle small {
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.sheet .toggle + label:not(.toggle) {
+  margin-top: 16px;
+}
+
+/* ボタン */
+.actions {
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.btn {
+  padding: 15px 12px;
+  border-radius: 14px;
+  background: var(--soft);
+  font-size: 15px;
+  color: #6e5a50;
+  white-space: nowrap;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(185, 74, 56, 0.22);
+}
+
+/* 削除・予算をなくすは、目立ちすぎないよう枠だけのボタンにする */
+.btn.danger {
+  flex: 0 0 auto;
+  padding: 15px 16px;
+  border: 1.5px solid #e6bdb3;
+  background: none;
+  color: var(--accent);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+/* カテゴリの予算: 1行ずつ点線で区切る */
+.cat-budget-list {
+  gap: 0;
+  margin-bottom: 4px;
+}
+
+.cat-budget-list li {
+  padding: 8px 0;
+}
+
+.cat-budget-list li + li {
+  border-top: 1px dashed var(--border);
+}
+
+.cat-budget-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sheet .cat-budget-list input {
+  width: 128px;
+  padding: 10px 12px;
+}
+
+.cat-budget-sum {
+  margin: 10px 0 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--soft);
+  font-size: 11px;
+  color: var(--sub);
+}
+
+/* 下のタブの真ん中の「+」ボタン(タブの帯から少し上に飛び出す丸) */
+.tab-add-slot {
+  position: relative;
+  flex: 0 0 64px;
+  display: flex;
+  justify-content: center;
+}
+
+.tab-add {
+  position: absolute;
+  top: -22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border: 4px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(185, 74, 56, 0.35);
+  transition: transform 0.12s;
+}
+
+.tab-add:active {
+  transform: scale(0.92);
+}
+
+.tabbar {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.tab {
+  white-space: nowrap;
+}
+
+/* 「+」ボタンは、帯の中に収まる横長の角丸(ピル型)にする */
+.tab-add-slot {
+  align-items: center;
+}
+
+.tab-add {
+  position: static;
+  width: 58px;
+  height: 40px;
+  border: none;
+  border-radius: 20px;
+  box-shadow: 0 3px 8px rgba(185, 74, 56, 0.25);
+}
+
+/* 下のタブ: 4つのタブと真ん中の「+」を同じ幅にして、等間隔に並べる
+   (文字の長さで幅が変わらないよう、基準の幅を0から均等に割り振る) */
+.tabbar .tab,
+.tabbar .tab-add-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  /* ボタンにもともと付いている左右の余白で幅がずれないようにする */
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* カレンダーのマスを、全部同じ高さのまま低くする(60px → 48px)
+   日付・金額・予定の印の3つは今までどおり入るよう、あいだを詰める */
+.cal-cell {
+  gap: 1px;
+  height: 48px;
+  padding: 4px 0 3px;
+}
+
+.cal-day {
+  height: 20px;
+}
+
+.cal-total {
+  line-height: 11px;
+}
+
+.cal-marks {
+  height: 7px;
+}
+
+/* ================================================================
+   入力画面の選択部品(カテゴリ・日付・時刻)
+   月の選択パネルと同じ、クリーム色の角丸パネル
+   ================================================================ */
+
+/* 押すとパネルが開く欄(見た目はほかの入力欄と同じ) */
+.field-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: #fffaf6;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.field-trigger .num {
+  font-weight: 500;
+}
+
+.field-trigger svg {
+  flex-shrink: 0;
+  color: var(--sub);
+}
+
+.field-trigger:active,
+.field-trigger:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(185, 74, 56, 0.12);
+}
+
+.field-dow {
+  margin-left: 2px;
+  font-size: 13px;
+  color: var(--sub);
+}
+
+.field-empty {
+  color: #b8aba0;
+}
+
+/* パネル(入力画面の上に重ねて出す) */
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.picker-panel {
+  position: fixed;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg);
+  box-shadow: 0 10px 30px rgba(70, 45, 32, 0.2);
+  animation: picker-in 0.16s ease-out;
+}
+
+/* カテゴリのリスト */
+.select-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+  text-align: left;
+}
+
+.select-option:active {
+  background: var(--soft);
+}
+
+.select-option.is-selected {
+  background: #f5e1da;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* 日付のカレンダー */
+.picker-panel .picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 8px;
+}
+
+.picker-head .num {
+  font-size: 15px;
+  color: #4a3a33;
+}
+
+.picker-head .icon-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: #fffaf6;
+  color: #6e5a50;
+}
+
+.date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  padding: 0 4px;
+}
+
+.date-dow {
+  padding: 4px 0;
+  font-size: 11px;
+  text-align: center;
+  color: var(--sub);
+}
+
+.date-dow.dow-0,
+.date-cell.dow-0 {
+  color: var(--accent);
+}
+
+.date-cell {
+  height: 36px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  background: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.date-cell:active {
+  background: var(--soft);
+}
+
+.date-cell.is-today {
+  border-color: #e6bdb3;
+  font-weight: 700;
+}
+
+.date-cell.is-selected {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* 時刻(時と分の2列) */
+.time-cols {
+  display: flex;
+  gap: 6px;
+}
+
+.time-col {
+  flex: 1;
+  height: 232px;
+  overflow-y: auto;
+  padding: 2px;
+  scrollbar-width: none;
+}
+
+.time-col::-webkit-scrollbar {
+  display: none;
+}
+
+.time-cell {
+  display: block;
+  width: 100%;
+  height: 38px;
+  margin-bottom: 2px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.time-cell:active {
+  background: var(--soft);
+}
+
+.time-cell.is-selected {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* パネル下のボタン */
+.picker-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 8px 10px 4px;
+  border-top: 1px dashed var(--border);
+}
+
+.picker-foot .link-btn {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.picker-foot .link-btn.sub {
+  color: var(--sub);
+}
+
+/* ================================================================
+   削除などの確認画面(画面のまんなかに出す)
+   ================================================================ */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(70, 45, 32, 0.42);
+  animation: confirm-fade 0.16s ease-out;
+}
+
+.confirm-box {
+  width: 100%;
+  max-width: 320px;
+  padding: 24px 20px 18px;
+  border-radius: 22px;
+  background: var(--bg);
+  box-shadow: 0 14px 40px rgba(70, 45, 32, 0.25);
+  text-align: center;
+  animation: confirm-pop 0.18s ease-out;
+  outline: none;
+}
+
+.confirm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  background: #f6e1da;
+  color: var(--accent);
+}
+
+.confirm-box h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.confirm-box p {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--sub);
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.confirm-actions .btn {
+  flex: 1 1 0;
+}
+
+@keyframes confirm-fade {
+  from { opacity: 0; }
+}
+
+@keyframes confirm-pop {
+  from { opacity: 0; transform: scale(0.94); }
+}
+
+/* ================================================================
+   記録がないとき: こまった顔の犬と一言
+   ================================================================ */
+.empty-dog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 26px;
+}
+
+.empty-dog img {
+  width: 128px;
+  height: auto;
+  /* 画像の白い背景を、下の色になじませる */
+  mix-blend-mode: multiply;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.empty-dog .empty-title {
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.empty-dog .empty-text {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: var(--sub);
+}
+
+/* 買い物履歴など広い場所では大きく */
+.empty-dog.is-large {
+  padding: 36px 16px 30px;
+}
+
+.empty-dog.is-large img {
+  width: 180px;
+}
+
+.empty-dog.is-large .empty-title {
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+/* カレンダーの日の欄では小さく(画像の下に文字) */
+.empty-dog.is-small {
+  padding: 14px 16px 16px;
+}
+
+.empty-dog.is-small img {
+  width: 84px;
+}
+
+.empty-dog.is-small .empty-title {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sub);
+}
+
+/* ホームのセリフ: かたまりの中では改行しない */
+.phrase {
+  display: inline-block;
+}
+
+/* ================================================================
+   買い物履歴の検索欄
+   ================================================================ */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 0 8px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fffaf6;
+  color: var(--sub);
+}
+
+.search-box:focus-within {
+  border-color: #d9a597;
+  box-shadow: 0 0 0 3px rgba(185, 74, 56, 0.1);
+}
+
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 0;
+  border: 0;
+  outline: none;
+  background: none;
+  /* 16px 未満だと iPhone で入力時に画面が拡大されるため */
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-box input::placeholder {
+  color: #b5aa9e;
+}
+
+/* ブラウザ標準の × は消して、自前のボタンを使う */
+.search-box input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--soft);
+  color: #6e5a50;
+  cursor: pointer;
+}
+
+/* ================================================================
+   先月のふりかえり(月のはじめの数日だけホームに出す)
+   ================================================================ */
+.review-card {
+  margin: 4px 0 22px;
+  padding: 16px 18px 12px;
+  border-radius: 20px;
+  background: #f3e4dc;
+  animation: picker-in 0.2s ease-out;
+}
+
+.review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.review-eyebrow {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.review-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin: -4px -6px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 250, 246, 0.7);
+  color: #8a7468;
+  cursor: pointer;
+}
+
+.review-title {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.review-title strong {
+  margin-left: 4px;
+  font-size: 24px;
+  letter-spacing: 0.01em;
+}
+
+.review-diff {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.review-diff.is-good,
+.review-mini .is-good {
+  color: #5f8a4e;
+}
+
+.review-diff.is-more,
+.review-mini .is-more {
+  color: var(--accent);
+}
+
+.review-rows {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-rows > li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 250, 246, 0.75);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.review-rows > li + li {
+  margin-top: 6px;
+}
+
+.review-rows .cat-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.review-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  line-height: 1.35;
+}
+
+.review-row-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sub);
+}
+
+.review-mini {
+  flex-wrap: wrap;
+  column-gap: 14px !important;
+  row-gap: 2px;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: var(--sub);
+}
+
+.review-mini strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.review-more {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
+  margin: 8px 0 0 auto;
+  font-size: 13px;
+}
+
+/* 設定: ホーム画面に追加 */
+.install-note {
+  margin: 0 0 10px;
+}
+
+.install-steps {
+  margin: 12px 0 0;
+  padding: 12px 14px 12px 32px;
+  border-radius: 14px;
+  background: #fffaf6;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.install-steps li + li {
+  margin-top: 4px;
+}
+
+.install-steps strong {
+  color: var(--accent);
+}
+
+.install-warn {
+  color: var(--sub);
+}
+
+.install-done {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #5f8a4e;
 }
