@@ -19,7 +19,8 @@ export function PlanMark({ settings, style: markStyle, faded = false, size = 11 
 }
 
 // 予定の1行。左にカテゴリのアイコン、右に「完了」ボタン(押したあとは✓だけ)
-export function PlanRow({ plan, done, doneAmount, settings, categoryIcon, onEdit, onToggle }) {
+// when: ホームなどで日付も出したいときの文字(「今日」「11月3日」など)。late なら赤くする
+export function PlanRow({ plan, done, doneAmount, settings, categoryIcon, onEdit, onToggle, when, late = false }) {
   const color = settings.planColor
   let amountText = hasAmount(plan) ? yen(plan.amount) : '金額未定'
   if (done && doneAmount != null) amountText = yen(doneAmount)
@@ -28,6 +29,7 @@ export function PlanRow({ plan, done, doneAmount, settings, categoryIcon, onEdit
       <span className="plan-cat">{categoryIcon}</span>
       <button className="plan-main" onClick={onEdit}>
         <span className="plan-name">{plan.name}</span>
+        {when && <span className={`plan-when ${late ? 'is-late' : ''}`}>{when}</span>}
         <span className="plan-sub">
           <span className={`num ${!hasAmount(plan) && !done ? 'is-unknown' : ''}`}>{amountText}</span>
           {plan.category && ` ・ ${plan.category}`}

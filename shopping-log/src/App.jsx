@@ -340,6 +340,9 @@ export default function App() {
   const [pendingCheck, setPendingCheck] = useState(null) // 金額を入れたら買ったことにする予定
   const [ask, setAsk] = useState(null) // 削除などの確認画面(null なら閉じている)
   const [query, setQuery] = useState('') // 買い物履歴の検索ことば
+  // 記録を押したときに出す、中身を見るだけの画面(編集は「編集する」から)
+  const [viewId, setViewId] = useState(null)
+  const viewItem = viewId ? items.find((i) => i.id === viewId) : null
   const [reviewClosed, setReviewClosed] = useState(() => localStorage.getItem(REVIEW_CLOSED_KEY) || '')
   const closeReview = (m) => {
     localStorage.setItem(REVIEW_CLOSED_KEY, m)
@@ -653,6 +656,8 @@ export default function App() {
     setShowForm(true)
   }
 
+  const openView = (item) => setViewId(item.id)
+
   const closeForm = () => {
     setShowForm(false)
     setPendingCheck(null)
@@ -721,6 +726,17 @@ export default function App() {
     daysLeft: isCurrentMonth ? daysInMonth(month) - now.getDate() + 1 : 0,
   })
 
+  // まだ完了していない予定(今日の分と、日付がすぎたもの)。ホームに並べて、その場で完了できるようにする
+  // 古すぎるものは出さないよう、先々月からの分だけ見る
+  const pendingDue = (() => {
+    const t = today()
+    const months = [-2, -1, 0].map((k) => shiftMonth(t.slice(0, 7), k))
+    return plans
+      .flatMap((p) => months.flatMap((m) => occurrences(p, m)).map((date) => ({ plan: p, date })))
+      .filter((e) => e.date <= t && e.date >= e.plan.date && !isDone(e.plan, e.date))
+      .sort((a, b) => a.date.localeCompare(b.date))
+  })()
+
   // 3日以内のまだ完了していない予定をキャラクターが知らせる
   const planNotice = (() => {
     const t = today()
@@ -729,7 +745,8 @@ export default function App() {
       .flatMap((p) => [...occurrences(p, t.slice(0, 7)), ...occurrences(p, nextMonth)].map((date) => ({ p, date })))
       .filter(({ p, date }) => !isDone(p, date))
       .map(({ p, date }) => ({ p, diff: Math.round((new Date(date + 'T00:00:00') - new Date(t + 'T00:00:00')) / 86400000) }))
-      .filter((x) => x.diff >= 0 && x.diff <= 3)
+      // 今日の分は「まだ完了してない予定」のカードに出すので、明日〜3日後だけ
+      .filter((x) => x.diff >= 1 && x.diff <= 3)
       .sort((a, b) => a.diff - b.diff)[0]
     if (!upcoming) return ''
     const when = ['今日', '明日', 'あさって', '3日後'][upcoming.diff]
@@ -907,6 +924,47 @@ export default function App() {
               買い物を記録する
             </button>
 
+            {pendingDue.length > 0 && (
+              <section className="due-card" aria-label="まだ完了してない予定">
+                <div className="due-head">
+                  <h2>まだ完了してない予定</h2>
+                  <span className="due-count num">{pendingDue.length}件</span>
+                </div>
+                <p className="due-note">支払ったり買ったりしたら「完了」を押してね</p>
+                <ul className="card list plan-list">
+                  {pendingDue.slice(0, 5).map((e) => {
+                    const late = e.date < today()
+                    return (
+                      <PlanRow
+                        key={`${e.plan.id}-${e.date}`}
+                        plan={e.plan}
+                        done={false}
+                        settings={settings}
+                        when={late ? `${formatDay(e.date)}・すぎてるよ` : '今日'}
+                        late={late}
+                        categoryIcon={<CategoryIcon category={e.plan.category || 'その他'} />}
+                        onEdit={() => openPlanEdit(e.plan)}
+                        onToggle={() => togglePlan(e.plan, e.date)}
+                      />
+                    )
+                  })}
+                </ul>
+                {pendingDue.length > 5 && (
+                  <button
+                    className="link-btn due-more"
+                    onClick={() => {
+                      setMonth(pendingDue[0].date.slice(0, 7))
+                      setSelectedDay(pendingDue[0].date)
+                      setTab('calendar')
+                    }}
+                  >
+                    ほか {pendingDue.length - 5}件はカレンダーで見る
+                    <ChevronRight size={15} />
+                  </button>
+                )}
+              </section>
+            )}
+
             <section>
               <div className="section-head">
                 <h2>最近のお買い物</h2>
@@ -919,7 +977,7 @@ export default function App() {
                 <EmptyState title="まだ記録がないみたい">上のボタンから、買い物を記録してみよう</EmptyState>
               ) : (
                 <ul className="card list">
-                  {recent.map((item) => <ItemRow key={item.id} item={item} onClick={openEdit} />)}
+                  {recent.map((item) => <ItemRow key={item.id} item={item} onClick={openView} />)}
                 </ul>
               )}
             </section>
@@ -977,7 +1035,7 @@ export default function App() {
                   <span className="num">{yen(list.reduce((s, i) => s + itemTotal(i), 0))}</span>
                 </div>
                 <ul className="card list">
-                  {list.map((item) => <ItemRow key={item.id} item={item} onClick={openEdit} />)}
+                  {list.map((item) => <ItemRow key={item.id} item={item} onClick={openView} />)}
                 </ul>
               </section>
             ))}
@@ -1032,13 +1090,8 @@ export default function App() {
                       <span className="cal-day num">{c.day}</span>
                       <span className="cal-total num">{c.total > 0 ? c.total.toLocaleString('ja-JP') : ''}</span>
                       <span className="cal-marks">
-                        {/* 予定がいくつあっても印は1つ。全部完了していたらうすくする */}
-                        {entriesByDate[c.date]?.length > 0 && (
-                          <PlanMark
-                            settings={settings}
-                            faded={entriesByDate[c.date].every((e) => isDone(e.plan, e.date))}
-                          />
-                        )}
+                        {/* 予定がいくつあっても印は1つ。全部完了したら印は出さない */}
+                        {entriesByDate[c.date]?.some((e) => !isDone(e.plan, e.date)) && <PlanMark settings={settings} />}
                       </span>
                     </button>
                   ) : (
@@ -1083,7 +1136,7 @@ export default function App() {
                 )}
                 {dayItems.length > 0 && (
                   <ul className="card list day-items">
-                    {dayItems.map((item) => <ItemRow key={item.id} item={item} onClick={openEdit} />)}
+                    {dayItems.map((item) => <ItemRow key={item.id} item={item} onClick={openView} />)}
                   </ul>
                 )}
                 {dayItems.length === 0 && dayEntries.length === 0 && (
@@ -1461,6 +1514,76 @@ export default function App() {
               <button type="submit" className="btn primary">保存</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {viewItem && (
+        <div className="overlay" onClick={() => setViewId(null)}>
+          <div className="sheet item-view" role="dialog" aria-label="記録の内容" onClick={(e) => e.stopPropagation()}>
+            <div className="handle" />
+            <div className="item-view-head">
+              <CategoryIcon category={viewItem.category} />
+              <div className="item-view-title">
+                <p className="item-view-name">{viewItem.name}</p>
+                <p className="item-view-when">
+                  {formatDay(viewItem.date)}
+                  {viewItem.time && ` ${Number(viewItem.time.slice(0, 2))}:${viewItem.time.slice(3)}`}
+                </p>
+              </div>
+            </div>
+            <p className="item-view-total num">{yen(itemTotal(viewItem))}</p>
+            <dl className="item-view-rows">
+              {viewItem.quantity > 1 && (
+                <div>
+                  <dt>金額</dt>
+                  <dd className="num">{yen(viewItem.price)} × {viewItem.quantity}個</dd>
+                </div>
+              )}
+              <div>
+                <dt>カテゴリ</dt>
+                <dd>{viewItem.category}</dd>
+              </div>
+              <div>
+                <dt>お店</dt>
+                <dd className={viewItem.store ? '' : 'is-empty'}>{viewItem.store || 'なし'}</dd>
+              </div>
+              <div>
+                <dt>メモ</dt>
+                <dd className={viewItem.memo ? 'item-view-memo' : 'is-empty'}>{viewItem.memo || 'なし'}</dd>
+              </div>
+            </dl>
+            <div className="actions">
+              <button
+                type="button"
+                className="btn danger"
+                onClick={() =>
+                  setAsk({
+                    title: 'この記録を削除しますか?',
+                    message: '削除した記録は元にもどせません。',
+                    okLabel: '削除する',
+                    icon: 'trash',
+                    onOk: () => {
+                      setItems((list) => list.filter((i) => i.id !== viewItem.id))
+                      setViewId(null)
+                    },
+                  })
+                }
+              >
+                削除
+              </button>
+              <button type="button" className="btn" onClick={() => setViewId(null)}>とじる</button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => {
+                  openEdit(viewItem)
+                  setViewId(null)
+                }}
+              >
+                <PencilLine size={16} /> 編集する
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
